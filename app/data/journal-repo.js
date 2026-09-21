@@ -7,7 +7,6 @@
 // checkpoint meant republishing the whole page.
 
 import { supabase } from './supabase-client.js';
-import { POLL_INTERVAL_MS } from '../config.js';
 
 /** One entry per run, newest first, each with its in/out changes attached. */
 export async function loadJournal() {
@@ -45,34 +44,15 @@ export function isRunning(journal) {
 }
 
 /**
- * Re-reads the journal on an interval and calls `onUpdate` when anything
- * changed. Returns a function that stops the polling.
- *
- * Polling rather than Realtime: the thing being watched moves on the scale
- * of minutes, so a websocket buys nothing and costs a moving part.
+ * Just enough of the journal to tell whether anything changed: one short
+ * row per run. The notes — which are the bulk of this table — are left
+ * behind and only fetched when this says they are worth fetching.
  */
-export function watchJournal(onUpdate, intervalMs = POLL_INTERVAL_MS) {
-  let stopped = false;
-  let previous = '';
-
-  const tick = async () => {
-    if (stopped) return;
-    try {
-      const journal = await loadJournal();
-      const signature = JSON.stringify(
-        journal.map((r) => [r.id, r.status, r.note, r.in.length, r.out.length]),
-      );
-      if (signature !== previous) {
-        previous = signature;
-        onUpdate(journal);
-      }
-    } catch {
-      // A failed poll is not worth interrupting the page for; the next
-      // tick will pick the change up.
-    }
-  };
-
-  const handle = setInterval(tick, intervalMs);
-  tick();
-  return () => { stopped = true; clearInterval(handle); };
+export async function probeJournal() {
+  const { data, error } = await supabase
+    .from('journal')
+    .select('id, status, finished_at')
+    .order('id', { ascending: false });
+  if (error) throw error;
+  return data;
 }

@@ -53,3 +53,18 @@ export async function loadAll() {
   ]);
   return { postings, companies, boards, meta };
 }
+
+/**
+ * A cheap "has anything changed?" probe: how many postings are live, and
+ * when the list was last touched. Returns no rows — just a count header
+ * and one short value — so it costs a fraction of a kilobyte.
+ */
+export async function probePostings() {
+  const [{ count, error: e1 }, { data, error: e2 }] = await Promise.all([
+    supabase.from('postings').select('n', { count: 'exact', head: true }),
+    supabase.from('meta').select('value').eq('key', 'updated').maybeSingle(),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  return { count, updated: data?.value ?? null };
+}

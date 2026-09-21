@@ -1,67 +1,77 @@
 // Keeps an open page honest about what the database currently holds.
 //
-// The first version polled only the journal, so a page left open through
-// a morning run showed the run's progress while the cards beneath it went
-// quietly stale — struck-off postings stayed on screen and new ones never
-// appeared. The daily log said "updated", the list was not. That is the
-// worst possible failure for a page whose entire job is to be current.
+// Two things matter here. First, the whole dataset must refresh, not just
+// the journal: an earlier version refreshed only the log, so a page left
+// open through a morning run showed the run's progress while the cards
+// beneath it went stale — struck-off postings stayed on screen and new
+// ones never appeared.
 //
-// So the refresh covers every table the page renders. Marks are excluded
-// deliberately: they are the one thing the browser writes, and clobbering
-// a mark set seconds ago with a slightly older server copy would be a
-// visible bug of its own.
+// Second, it should not re-download everything to discover that nothing
+// changed. The database is static for most of the day and then moves every
+// few minutes during the run, so each tick asks a small question first —
+// how many postings, when was the list last touched, what state is each
+// run in — and only fetches the parts whose answer changed. A quiet tick
+// costs well under a kilobyte instead of 212.
+//
+// Marks are excluded deliberately: they are the one thing the browser
+// writes, and overwriting a mark set seconds ago with a slightly older
+// server copy would be a visible bug of its own.
 
-import { loadAll } from './postings-repo.js';
-import { loadJournal } from './journal-repo.js';
-import { POLL_INTERVAL_MS } from '../config.js';
+import { loadAll, probePostings } from './postings-repo.js';
+import { loadJournal, probeJournal } from './journal-repo.js';
+import { FAST_POLL_MS, IDLE_POLL_MS } from '../config.js';
 
 /**
- * Re-reads postings, companies, boards, meta and the journal on an
- * interval, calling `onUpdate` only when something actually changed.
+ * Calls `onUpdate` whenever the rendered data actually changes.
  * Returns a function that stops the polling.
  */
-export function watchData(onUpdate, intervalMs = POLL_INTERVAL_MS) {
-  let stopped = false;
-  let previous = '';
-  let inFlight = false;
+export function watchData(onUpdate, { fast = FAST_POLL_MS, idle = IDLE_POLL_MS } = {}) {
+  let stopped = false, inFlight = false, handle = null;
+  let period = null;
+  let core = null;                 // postings, companies, boards, meta
+  let coreSig = '', journalSig = '';
 
-  const tick = async () => {
-    // A slow round trip must not stack up behind the interval.
+  const schedule = (ms) => {
+    if (stopped || period === ms) return;
+    period = ms;
+    clearInterval(handle);
+    handle = setInterval(tick, ms);
+  };
+
+  async function tick() {
     if (stopped || inFlight || document.hidden) return;
     inFlight = true;
     try {
-      const [core, journal] = await Promise.all([loadAll(), loadJournal()]);
-      const next = { ...core, journal };
+      const [p, j] = await Promise.all([probePostings(), probeJournal()]);
 
-      // Compare on the fields the page actually renders, so an unrelated
-      // column change does not force a re-render that would close an open
-      // note or menu.
-      const signature = JSON.stringify({
-        p: next.postings.map((x) => [x.n, x.removed_on, x.sort_order, x.title]),
-        m: next.meta?.updated,
-        c: next.companies.length,
-        b: next.boards.length,
-        j: next.journal.map((r) => [r.id, r.status, r.note, r.in.length, r.out.length]),
-      });
+      // A run in flight rewrites its note every few minutes; that is the
+      // one time this page has anything to animate, so watch it closely
+      // and otherwise check in slowly.
+      schedule(j.some((r) => r.status === 'in_progress') ? fast : idle);
 
-      if (signature !== previous) {
-        previous = signature;
-        onUpdate(next);
-      }
+      const nextCoreSig = `${p.count}|${p.updated}`;
+      const nextJournalSig = JSON.stringify(j);
+      if (nextCoreSig === coreSig && nextJournalSig === journalSig) return;
+
+      // Postings, companies and meta only move when the list itself moved.
+      if (nextCoreSig !== coreSig || !core) core = await loadAll();
+      const journal = await loadJournal();
+
+      coreSig = nextCoreSig;
+      journalSig = nextJournalSig;
+      onUpdate({ ...core, journal });
     } catch {
-      // A failed poll is not worth interrupting the page for; the next
-      // tick picks the change up. A failure that persists shows up as a
-      // stale `meta.updated` in the footer.
+      // A failed tick is not worth interrupting the page for; the next one
+      // picks the change up, and a persistent failure shows as a stale
+      // "list updated" date in the footer.
     } finally {
       inFlight = false;
     }
-  };
+  }
 
-  const handle = setInterval(tick, intervalMs);
   // Catch up immediately when the tab comes back to the foreground.
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) tick();
-  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+  schedule(idle);
   tick();
 
   return () => { stopped = true; clearInterval(handle); };
