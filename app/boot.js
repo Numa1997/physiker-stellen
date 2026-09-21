@@ -8,7 +8,8 @@
 import { requireSession } from './auth/password-gate.js';
 import { loadAll } from './data/postings-repo.js';
 import { loadMarks } from './data/marks-repo.js';
-import { loadJournal, watchJournal } from './data/journal-repo.js';
+import { loadJournal } from './data/journal-repo.js';
+import { watchData } from './data/live-refresh.js';
 import { onAuthChange } from './data/supabase-client.js';
 import { renderPage } from './view/page.js';
 
@@ -33,9 +34,11 @@ async function main() {
 
   const page = renderPage(mount, data);
 
-  // The daily task writes its progress straight into the journal, so the
-  // page can simply re-read it and show a run happening in real time.
-  const stop = watchJournal((journal) => page.updateJournal(journal));
+  // The daily task writes straight into the tables, so the page re-reads
+  // them and shows the run happening. Postings are refreshed alongside the
+  // journal: a page left open through a morning run would otherwise keep
+  // showing struck-off jobs and miss the new ones.
+  const stop = watchData((next) => page.updateData(next));
   addEventListener('pagehide', stop, { once: true });
 
   // A session can expire or be signed out in another tab; when it goes,

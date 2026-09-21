@@ -61,10 +61,20 @@ function runBlock(run, isLatest, meta) {
   }
   if (run.out.length) body.append(group('Removed', run.out, 'out'));
 
-  if (!run.in.length && !run.out.length && !running) {
-    body.append(el('p', { class: 'day__note' },
-      'No postings added or removed. Every listed posting was re-checked '
-      + 'and is still live.'));
+  // An all-clear may only be claimed by a run that actually completed.
+  // A run that died mid-way also has no additions and no removals, and
+  // saying "everything was re-checked" about it would be a lie in exactly
+  // the case where the list is least trustworthy.
+  if (!run.in.length && !run.out.length) {
+    if (run.status === 'done') {
+      body.append(el('p', { class: 'day__note' },
+        'No postings added or removed. Every listed posting was re-checked '
+        + 'and is still live.'));
+    } else if (unfinished) {
+      body.append(el('p', { class: 'day__note day__note--warn' },
+        'This run did not finish, so the list was not fully re-checked. '
+        + 'Postings may have died without being struck off.'));
+    }
   }
 
   body.append(runDetails(run));

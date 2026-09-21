@@ -224,3 +224,12 @@
 .boards a:hover { color: var(--accent); }
 .boards__host { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted-light); white-space: nowrap; }
 @media (max-width: 820px) { .boards { grid-template-columns: 1fr; } }
+
+/* The eligibility label is derived from the posting's own wording, so it
+   can legitimately say "Master's required". Colour it accordingly rather
+   than letting a warning inherit the reassuring oxblood of an accepted
+   Bachelor. */
+.elig[data-tone="warn"] { border-left-color: var(--warn-fg); }
+.elig[data-tone="warn"] .elig__label { color: var(--warn-fg); }
+.elig[data-tone="neutral"] { border-left-color: var(--muted-light); }
+.elig[data-tone="neutral"] .elig__label { color: var(--muted); }

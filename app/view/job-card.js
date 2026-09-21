@@ -7,6 +7,7 @@ import { jobKey } from '../data/marks-repo.js';
 import {
   STAGES, advance, advanceLabel, stepBack, stageLabel, waitingState,
 } from '../state/pipeline.js';
+import { eligibilityLabel } from '../state/eligibility.js';
 import { el } from './dom.js';
 
 export function jobCard(job, marks, ctx) {
@@ -73,8 +74,11 @@ function titleBlock(job) {
 }
 
 function eligBlock(job) {
-  const box = el('div', { class: 'elig' },
-    el('div', { class: 'elig__label' }, 'Bachelor accepted'));
+  // Derived from the posting's own wording — never asserted. See
+  // state/eligibility.js for why this must not be a constant.
+  const { label, tone } = eligibilityLabel(job);
+  const box = el('div', { class: 'elig', 'data-tone': tone },
+    el('div', { class: 'elig__label' }, label));
   if (job.eligibility_en) box.append(el('p', { class: 'elig__en' }, job.eligibility_en));
   if (job.eligibility_quote_de) {
     box.append(el('p', { class: 'elig__de' }, `„${job.eligibility_quote_de}“`));

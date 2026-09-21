@@ -36,8 +36,11 @@ const FALLBACK_TITLES = {
 };
 
 export function renderPage(mount, data) {
-  const { postings, companies, boards, meta, marks } = data;
-  let journal = data.journal;
+  // Everything except `marks` is server state and gets replaced wholesale
+  // by the refresh below. `marks` stays the live local Map, because a
+  // refresh landing mid-edit must not clobber a mark you just set.
+  const { marks } = data;
+  let { postings, companies, boards, meta, journal } = data;
 
   // ---- view state -------------------------------------------------------
   const folded = new Set();
@@ -205,7 +208,20 @@ export function renderPage(mount, data) {
   render();
 
   return {
-    updateJournal(next) { journal = next; render(); },
+    /**
+     * Swap in freshly loaded server state. Called by the poll in boot.js,
+     * so a page left open overnight shows the postings the morning run
+     * added and stops showing the ones it struck off — previously only
+     * the journal refreshed, and the cards silently went stale.
+     */
+     updateData(next) {
+      if (next.postings) postings = next.postings;
+      if (next.companies) companies = next.companies;
+      if (next.boards) boards = next.boards;
+      if (next.meta) meta = next.meta;
+      if (next.journal) journal = next.journal;
+      render();
+    },
   };
 }
 
