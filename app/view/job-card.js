@@ -1,192 +1,103 @@
-// One posting card: pills, the eligibility quote, skills, the stage line
-// and its actions. Every mark written here is applied locally first so the
-// click lands instantly, then persisted; a failed write is rolled back and
-// reported rather than left to diverge silently.
+// One posting card, markup as in the artifact's template.
 
-import { jobKey } from '../data/marks-repo.js';
-import {
-  STAGES, advance, advanceLabel, stepBack, stageLabel, waitingState,
-} from '../state/pipeline.js';
+import { el, hover } from './dom.js';
+import { noteBtn, advance, stepBack, setStage, clearStage } from '../state/pipeline.js';
 import { eligibilityLabel } from '../state/eligibility.js';
-import { el } from './dom.js';
 
-export function jobCard(job, marks, ctx) {
-  const key = jobKey(job.n);
-  const mark = marks.get(key) ?? null;
-  const removed = Boolean(job.removed_on) || Boolean(mark?.removed);
+const MONO = "font-family:'IBM Plex Mono',monospace";
+const SERIF = "font-family:'Instrument Serif',serif";
 
+export function jobCard(j, a) {
+  const key = j.key;
   const card = el('article', {
-    class: 'card',
-    'data-removed': String(removed),
-    'data-starred': String(Boolean(job.starred)),
+    'data-card': '1', 'data-removed': j.removedAttr,
+    style: `background:${j.bg};border:1px solid #cdc1ae;border-left:${j.borderLeft};border-radius:6px;padding:16px 16px 12px;display:flex;flex-direction:column;gap:10px;opacity:${j.opacity};border-style:${j.borderStyle}`,
   });
 
-  card.append(topRow(job));
-  if (job.starred) card.append(el('div', { class: 'card__star' }, '★ Top match'));
-  card.append(titleBlock(job));
-  if (job.eligibility_quote_de || job.eligibility_en) card.append(eligBlock(job));
-  if (job.skills?.length) {
-    card.append(el('div', { class: 'skills' },
-      ...job.skills.map((s) => el('span', {}, s))));
-  }
-  if (job.salary) {
-    card.append(el('p', { class: 'card__salary' },
-      el('span', {}, 'Salary'), job.salary));
-  }
-  if (job.note) card.append(el('p', { class: 'card__note' }, job.note));
+  // top row: pills + number
+  const pills = el('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap' },
+    el('span', { style: `${MONO};font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:500;padding:2px 7px;border-radius:3px;background:${j.pillBg};color:${j.pillColor}` }, j.locLabel),
+    el('span', { style: `${MONO};font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8b8079` }, j.catLabel),
+    j.hasEmp && el('span', { style: `${MONO};font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7a4b12;border:1px solid #e3d2b0;padding:1px 6px;border-radius:3px` }, j.emp),
+    j.isDup && el('span', { style: `${MONO};font-size:10px;color:#8b8079;border:1px dashed #d9d0c2;padding:1px 6px;border-radius:3px` }, `mirror of #${j.dupOf}`));
+  card.append(el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px' },
+    pills, el('span', { style: `${MONO};font-size:11px;color:#8b8079;white-space:nowrap` }, `#${j.n}`)));
 
-  if (removed) {
-    card.append(removedBanner(job, mark, ctx, key));
-  } else {
-    if (mark?.stage) card.append(stageLine(mark));
-    card.append(actionRow(job, mark, ctx, key));
+  if (j.starred) card.append(el('div', { style: `${MONO};font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#7a1f2b;font-weight:500` }, '★ Top match'));
+
+  // title block
+  const titleWrap = el('div', {},
+    el('h4', { style: `margin:0;${SERIF};font-weight:400;font-size:21px;line-height:1.15;text-decoration:${j.strike};color:${j.titleColor}` },
+      hover(el('a', { href: j.url, target: '_blank', rel: 'noopener', style: 'color:inherit' }, j.title), 'color:#7a1f2b;text-decoration:underline')),
+    j.showOriginal && el('p', { 'data-cardsub': '1', style: `margin:3px 0 0;${MONO};font-size:11px;color:#8b8079;line-height:1.4` }, j.titleOriginal),
+    el('p', { style: 'margin:6px 0 0;font-size:13.5px;color:#3a322e' },
+      el('span', { style: 'font-weight:500' }, j.company), el('span', { style: 'color:#8b8079' }, ` · ${j.city ?? ''}`)));
+  card.append(titleWrap);
+
+  // eligibility box — the payload. Label derived from the posting's wording,
+  // never asserted (see state/eligibility.js).
+  if (j.hasElig) {
+    const { label, tone } = eligibilityLabel(j.raw);
+    const lc = tone === 'warn' ? '#7a4b12' : '#7a1f2b';
+    card.append(el('div', { 'data-cardelig': '1', style: `background:#fbf6ee;border-left:2px solid ${lc};padding:8px 10px;border-radius:0 4px 4px 0` },
+      el('div', { style: `${MONO};font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:${lc};margin-bottom:3px;font-weight:500` }, label),
+      j.hasEligEn && el('p', { style: 'margin:0;font-size:13px;line-height:1.45;color:#1c1518' }, j.eligEn),
+      el('p', { style: `margin:3px 0 0;${MONO};font-size:11px;line-height:1.5;color:#5a504b` }, `„${j.eligDe}“`)));
+  }
+
+  if (j.hasSkills) {
+    card.append(el('div', { 'data-cardskills': '1', style: 'display:flex;flex-wrap:wrap;gap:4px' },
+      ...j.skills.map((t) => el('span', { style: `${MONO};font-size:11px;padding:1px 6px;border:1px solid #e3dccf;border-radius:3px;color:#5a504b;background:#f5f1ea` }, t))));
+  }
+  if (j.hasSalary) {
+    card.append(el('p', { style: `margin:0;${MONO};font-size:12px;color:#1c1518` },
+      el('span', { style: 'font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#8b8079;margin-right:6px' }, 'Salary'), j.salary));
+  }
+  if (j.hasNote) card.append(el('p', { 'data-cardnote': '1', style: 'margin:0;font-size:13px;line-height:1.5;color:#5a504b' }, j.note));
+
+  if (j.removed) {
+    card.append(el('div', { 'data-print-hide': '1', style: `display:flex;justify-content:space-between;align-items:center;gap:8px;background:#efe9df;border-radius:4px;padding:6px 10px;${MONO};font-size:11px;color:#5a504b;margin-top:auto` },
+      el('span', {}, j.removedByTask ? `Removed ${j.removedOn}${j.removedWhy ? ` — ${j.removedWhy}` : ''}` : 'Removed from list'),
+      !j.removedByTask && el('button', { onclick: () => a.writeMark(key, { removed: false }), style: `${MONO};font-size:11px;border:1px solid #7a1f2b;background:#fff;color:#7a1f2b;border-radius:3px;padding:2px 9px;cursor:pointer` }, 'Restore')));
+    return card;
+  }
+
+  // stage line
+  if (j.hasStage) {
+    const line = el('div', { 'data-stageline': '1', 'data-print-hide': '1' },
+      el('span', { style: `color:${j.stageDot}` }, '●'),
+      el('span', { style: `background:${j.stageLabelBg};color:${j.stageLabelColor};padding:${j.stageLabelPad};border-radius:${j.stageLabelRadius};text-decoration:${j.stageLabelStrike};font-weight:500` }, j.stageLabel));
+    if (j.hasWait) {
+      line.append(el('span', { style: 'color:#8b8079' }, `· ${j.waitPrefixLabel}`), el('span', { style: `color:${j.waitColor}` }, j.waitDaysLabel));
+    }
+    card.append(line);
+  }
+
+  // actions
+  const nb = noteBtn(a.isNoteOpen(key), j.noteText);
+  const mark = j.mark;
+  const menuOpen = a.isMenuOpen(key);
+  const menu = el('div', { 'data-menu': '1' },
+    el('button', { 'data-menubtn': '1', title: 'More stage actions', 'aria-label': 'More stage actions', onclick: (e) => { e.stopPropagation(); a.toggleMenu(key); } }, '⋯'),
+    menuOpen && el('div', { 'data-menupop': '1' },
+      el('button', { 'data-menuitem': '1', onclick: () => a.writeMark(key, setStage('offer')) }, 'Offer'),
+      el('button', { 'data-menuitem': '1', onclick: () => a.writeMark(key, setStage('rejected')) }, 'Rejected'),
+      el('button', { 'data-menuitem': '1', onclick: () => a.writeMark(key, setStage('withdrawn')) }, 'Withdrawn'),
+      el('button', { 'data-menuitem': '1', onclick: () => { const p = stepBack(mark); if (p) a.writeMark(key, p); } }, 'Step back'),
+      el('button', { 'data-menuitem': '1', onclick: () => a.writeMark(key, clearStage()) }, 'Clear stage')));
+
+  const actions = el('div', { 'data-print-hide': '1', style: 'display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:auto;padding-top:10px;border-top:1px solid #e3dccf' },
+    j.hasAdvance && el('button', { 'data-advance': '1', onclick: () => { const p = advance(mark); if (p) a.writeMark(key, p); } }, j.advanceLabel),
+    menu,
+    el('button', { onclick: () => a.toggleNote(key), style: `${MONO};font-size:11px;padding:4px 10px;border:1px solid ${nb.ntBorder};background:${nb.ntBg};color:${nb.ntColor};border-radius:3px;cursor:pointer` }, 'Notes'),
+    hover(el('button', { title: 'Remove from list', onclick: () => a.writeMark(key, { removed: true }), style: `margin-left:auto;${MONO};font-size:11px;padding:4px 9px;border:1px solid #e3dccf;background:transparent;color:#8b8079;border-radius:3px;cursor:pointer` }, '✕'), 'border-color:#7a1f2b;color:#7a1f2b'));
+  card.append(actions);
+
+  if (a.isNoteOpen(key)) {
+    const ta = el('textarea', { 'data-print-hide': '1', rows: '3', placeholder: 'Your notes…', style: 'width:100%;font-size:13px;padding:8px;border:1px solid #d9d0c2;border-radius:4px;resize:vertical;background:#fff;color:#1c1518' });
+    ta.value = j.noteText;
+    ta.addEventListener('change', () => a.writeMark(key, { note: ta.value }));
+    card.append(ta);
   }
   return card;
-}
-
-function topRow(job) {
-  const pills = el('div', { class: 'card__pills' });
-  pills.append(el('span',
-    { class: `pill pill--${job.location_group ?? 'de'}` },
-    job.location_label ?? job.location_group ?? ''));
-  pills.append(el('span', { class: 'pill--cat' }, job.category_label ?? ''));
-  if (job.employment) pills.append(el('span', { class: 'pill--emp' }, job.employment));
-  if (job.duplicate_of) {
-    pills.append(el('span', { class: 'pill--dup' }, `mirror of #${job.duplicate_of}`));
-  }
-  return el('div', { class: 'card__top' },
-    pills, el('span', { class: 'card__n' }, `#${job.n}`));
-}
-
-function titleBlock(job) {
-  const wrap = el('div', {});
-  wrap.append(el('h4', { class: 'card__title' },
-    el('a', { href: job.url, target: '_blank', rel: 'noopener' }, job.title)));
-  // The German original is worth showing only when it differs from the
-  // translated title we display.
-  if (job.title_original && job.title_original !== job.title) {
-    wrap.append(el('p', { class: 'card__original' }, job.title_original));
-  }
-  wrap.append(el('p', { class: 'card__where' },
-    el('b', {}, job.company),
-    el('span', {}, ` · ${job.city ?? ''}`)));
-  return wrap;
-}
-
-function eligBlock(job) {
-  // Derived from the posting's own wording — never asserted. See
-  // state/eligibility.js for why this must not be a constant.
-  const { label, tone } = eligibilityLabel(job);
-  const box = el('div', { class: 'elig', 'data-tone': tone },
-    el('div', { class: 'elig__label' }, label));
-  if (job.eligibility_en) box.append(el('p', { class: 'elig__en' }, job.eligibility_en));
-  if (job.eligibility_quote_de) {
-    box.append(el('p', { class: 'elig__de' }, `„${job.eligibility_quote_de}“`));
-  }
-  return box;
-}
-
-function stageLine(mark) {
-  const meta = STAGES[mark.stage] ?? {};
-  const line = el('div', { class: 'stage' },
-    el('span', { style: `color:${meta.dot ?? 'var(--muted)'}` }, '●'),
-    el('span', {
-      class: 'stage__label',
-      style: `background:${meta.dot ?? 'var(--muted)'}1f;color:${meta.dot ?? 'var(--muted)'}`,
-    }, stageLabel(mark)));
-
-  const wait = waitingState(mark);
-  if (wait) {
-    line.append(el('span',
-      { class: `stage__wait${wait.overdue ? ' stage__wait--overdue' : ''}` },
-      `· ${wait.prefix} `, el('b', {}, wait.label)));
-  }
-  return line;
-}
-
-function actionRow(job, mark, ctx, key) {
-  const row = el('div', { class: 'actions' });
-  const label = advanceLabel(mark);
-
-  if (label) {
-    row.append(el('button', {
-      class: 'btn btn--advance',
-      onclick: () => ctx.writeMark(key, advance(mark)),
-    }, label));
-  }
-
-  row.append(overflowMenu(mark, ctx, key));
-
-  const notesBtn = el('button', {
-    class: 'btn',
-    'aria-pressed': String(Boolean(mark?.note)),
-    onclick: () => ctx.toggleNote(key),
-  }, 'Notes');
-  row.append(notesBtn);
-
-  row.append(el('button', {
-    class: 'btn btn--remove',
-    title: 'Remove from list',
-    onclick: () => ctx.writeMark(key, { removed: true }),
-  }, '✕'));
-
-  const wrap = el('div', {});
-  wrap.append(row);
-  if (ctx.isNoteOpen(key)) wrap.append(noteBox(mark, ctx, key));
-  return wrap;
-}
-
-function noteBox(mark, ctx, key) {
-  const box = el('textarea', {
-    class: 'note-box', rows: '3', placeholder: 'Your notes…',
-  });
-  box.value = mark?.note ?? '';
-  // Persist on blur rather than per keystroke: one row write per edit.
-  box.addEventListener('blur', () => {
-    if ((mark?.note ?? '') !== box.value) ctx.writeMark(key, { note: box.value });
-  });
-  return box;
-}
-
-function overflowMenu(mark, ctx, key) {
-  const open = ctx.isMenuOpen(key);
-  const wrap = el('div', { class: 'menu' });
-  wrap.append(el('button', {
-    class: 'btn', title: 'More stage actions',
-    'aria-label': 'More stage actions', 'aria-expanded': String(open),
-    onclick: (e) => { e.stopPropagation(); ctx.toggleMenu(key); },
-  }, '⋯'));
-
-  if (!open) return wrap;
-
-  const item = (text, patch) => el('button',
-    { onclick: () => ctx.writeMark(key, patch) }, text);
-  const now = () => new Date().toISOString();
-
-  const pop = el('div', { class: 'menu__pop' },
-    item('Offer', { stage: 'offer', stage_at: now() }),
-    item('Rejected', { stage: 'rejected', stage_at: now() }),
-    item('Withdrawn', { stage: 'withdrawn', stage_at: now() }),
-    item('Step back', stepBack(mark)),
-    el('button', { onclick: () => ctx.dropMark(key) }, 'Clear stage'));
-  wrap.append(pop);
-  return wrap;
-}
-
-function removedBanner(job, mark, ctx, key) {
-  // Two different kinds of "removed" meet here: the daily task struck it
-  // off because the posting died, or you struck it off yourself. Only the
-  // second is yours to undo, so say which one it is.
-  const byTask = Boolean(job.removed_on);
-  const why = byTask
-    ? `Removed ${job.removed_on}${job.removed_why ? ` — ${job.removed_why}` : ''}`
-    : 'Removed from list';
-
-  const banner = el('div', { class: 'removed-banner' }, el('span', {}, why));
-  if (!byTask) {
-    banner.append(el('button', {
-      class: 'btn', onclick: () => ctx.writeMark(key, { removed: false }),
-    }, 'Restore'));
-  }
-  return banner;
 }

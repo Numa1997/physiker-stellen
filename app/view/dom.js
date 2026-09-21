@@ -5,22 +5,17 @@
  * el('div', {class: 'x', onclick: fn}, child, 'text', …)
  *
  * Properties starting with `on` become listeners; everything else is set
- * as an attribute. Null and undefined children are skipped, so callers can
- * write `cond && el(…)` inline.
+ * as an attribute. Null/undefined/false children are skipped, so callers
+ * can write `cond && el(…)` inline.
  */
 export function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
-
   for (const [k, v] of Object.entries(attrs)) {
     if (v == null || v === false) continue;
-    if (k.startsWith('on') && typeof v === 'function') {
-      node.addEventListener(k.slice(2), v);
-    } else {
-      node.setAttribute(k, v === true ? '' : String(v));
-    }
+    if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v === true ? '' : String(v));
   }
-  append(node, children);
-  return node;
+  return append(node, children);
 }
 
 export function append(node, children) {
@@ -37,17 +32,32 @@ export function fill(node, ...children) {
   return append(node, children);
 }
 
-/** The hostname of a URL, for the "↗ example.com" affordances. */
+/** The hostname of a URL, for the "example.com ↗" affordances. */
 export function hostOf(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ''); }
-  catch { return ''; }
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url ?? ''; }
+}
+
+/**
+ * The template's `style-hover` attribute: inline styles applied while the
+ * pointer is over the element. Kept as inline styles rather than classes so
+ * the markup stays identical to the artifact's.
+ */
+export function hover(node, css) {
+  const base = node.getAttribute('style') ?? '';
+  node.addEventListener('mouseenter', () => node.setAttribute('style', `${base};${css}`));
+  node.addEventListener('mouseleave', () => node.setAttribute('style', base));
+  return node;
+}
+
+/** The rotating chevron glyph, drawn entirely in CSS. */
+export function chevron(attrs = {}) {
+  return el('span', { 'data-chevbox': '1', ...attrs }, el('span', { 'data-chev': '1' }));
 }
 
 /** 2026-09-21 → "Monday, 21 September 2026" */
 export function longDate(iso) {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return d.toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    timeZone: 'UTC',
+  if (!iso) return '—';
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
   });
 }

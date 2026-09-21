@@ -1,0 +1,16 @@
+/* The login card. The artifact had no login (it was private to one Claude
+   account); everything else on the page uses the artifact's own stylesheet,
+   style.css, unchanged. This file styles only what did not exist before. */
+.gate{min-height:100dvh;display:grid;place-items:center;padding:28px}
+.gate__card{width:min(420px,100%);display:flex;flex-direction:column;gap:6px;background:#fff;border:1px solid #d9d0c2;border-radius:6px;padding:32px 28px}
+.gate__kicker{margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7a1f2b}
+.gate__title{margin:4px 0 18px;font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:40px;line-height:1;letter-spacing:-.02em}
+.gate__label{margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8b8079}
+.gate__input{font:15px 'IBM Plex Sans',system-ui,sans-serif;padding:9px 11px;border:1px solid #d9d0c2;border-radius:4px;background:#faf9f5;color:#1c1518}
+.gate__btn{margin-top:20px;font:500 14px 'IBM Plex Sans',system-ui,sans-serif;padding:10px;border:1px solid #7a1f2b;border-radius:4px;background:#7a1f2b;color:#fff;cursor:pointer}
+.gate__btn:hover:not(:disabled){background:#4d0f18}
+.gate__btn:disabled{opacity:.6;cursor:default}
+.gate__error{margin:12px 0 0;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#7a1f2b}
+.fatal{max-width:58ch;margin:18vh auto;padding:0 28px;color:#8b8079;font-family:'IBM Plex Mono',monospace;font-size:13px}
+.fatal h1{font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:30px;color:#1c1518}
+.fatal pre{white-space:pre-wrap;background:#fff;border:1px solid #d9d0c2;border-radius:3px;padding:10px;font-size:12px}

@@ -18,7 +18,7 @@ const mount = document.getElementById('app');
 async function main() {
   await requireSession(mount);
 
-  mount.innerHTML = '<p class="boot">Loading postings…</p>';
+  mount.innerHTML = '<p id="boot-msg">Loading postings…</p>';
 
   let data;
   try {

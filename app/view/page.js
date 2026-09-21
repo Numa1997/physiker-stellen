@@ -1,220 +1,259 @@
-// Assembles the blocks in order and owns the small amount of view state
-// the page needs: which sections are folded, which note or menu is open,
-// and whether the last write reached the database.
+// Assembles the page. This is the artifact's `renderVals()` — the same
+// derived values under the same names — feeding the same markup, with the
+// data coming from Supabase instead of a JSON file and the marks written
+// to the `marks` table instead of the artifact's store.
 
-import { createFilters, filterPostings, filterCompanies, filterBoards, sortPostings }
-  from '../state/filters.js';
-import { saveMark, clearMark, clearAllMarks, jobKey } from '../data/marks-repo.js';
+import { matchWords, stageOk, applySort, pill, DEFAULTS } from '../state/filters.js';
+import { entryView } from '../state/pipeline.js';
+import { loadPrefs, savePrefs, SECTION_IDS, withViewTransition } from '../state/prefs.js';
+import { saveMark, clearAllMarks, loadMarks, jobKey, companyKey } from '../data/marks-repo.js';
 import { isRunning } from '../data/journal-repo.js';
 import { signOut } from '../auth/password-gate.js';
-import { el, fill } from './dom.js';
+import { el, fill, hostOf, longDate } from './dom.js';
 import { filterBar } from './filter-bar.js';
-import { masthead } from './masthead.js';
-import { sectionNav } from './section-nav.js';
+import { masthead, sectionNav } from './masthead.js';
+import { foldSummary } from './fold.js';
 import { companySection } from './company-section.js';
 import { jobSection } from './job-section.js';
 import { jobBoards } from './job-boards.js';
-import { dailyLog } from './daily-log.js';
-import { auditTrail, footer } from './audit-trail.js';
+import { dailyLog, auditTrail, footer } from './daily-log.js';
 
-// The page's reading order, which is not the order the sections are stored
-// in: the energy block comes before the content block, and the boards go
-// last. Section 01 (companies) and 09 (boards) are rendered by their own
-// modules, so they are not in this list.
-const JOB_SECTIONS = [
-  { id: 's2', category: 'sim',     kick: 'Simulation' },
-  { id: 's3', category: 'sys',     kick: 'Systems' },
-  { id: 's4', category: 'data',    kick: 'Data' },
-  { id: 's5', category: 'prod',    kick: 'Production' },
-  { id: 's6', category: 'lead',    kick: 'Team Lead' },
-  { id: 's8', category: 'energy',  kick: 'Field / Dev / PM' },
-  { id: 's9', category: 'content', kick: 'Content & AI' },
+// [id, category, title, kicker, hasSubgroups, numberOverride] — verbatim.
+const DEFS = [
+  ['s2', 'sim', 'Simulation / CFD / FEM / Computational', 'Computational', true],
+  ['s3', 'sys', 'Systems Engineer / Physicist', 'Systems', true],
+  ['s4', 'data', 'Data Analysis / Data Science', 'Berlin & Europe', false],
+  ['s5', 'prod', 'Production / Manufacturing', 'Berlin, Brandenburg & Europe', false],
+  ['s6', 'lead', 'Team Lead', 'Berlin & Europe', false],
+  ['s8', 'energy', 'Field, Development & Project Roles', 'Energy · AI · Niche tech', false, '07'],
+  ['s9', 'content', 'Content, Education & AI Training', 'Editorial · Learning content · Evals', true, '08'],
 ];
-
-const FALLBACK_TITLES = {
-  s9: 'Physics Content, Education & AI Training',
-};
+const NAV = [['s1', '01', 'Companies'], ['s2', '02', 'Simulation'], ['s3', '03', 'Systems'], ['s4', '04', 'Data'], ['s5', '05', 'Production'], ['s6', '06', 'Team Lead'], ['s8', '07', 'Field/Dev/PM'], ['s9', '08', 'Content/AI'], ['s7', '09', 'Job Boards']];
 
 export function renderPage(mount, data) {
-  // Everything except `marks` is server state and gets replaced wholesale
-  // by the refresh below. `marks` stays the live local Map, because a
-  // refresh landing mid-edit must not clobber a mark you just set.
   const { marks } = data;
   let { postings, companies, boards, meta, journal } = data;
 
-  // ---- view state -------------------------------------------------------
-  const folded = new Set();
-  let openNote = null;
-  let openMenu = null;
-  let syncError = false;
+  // ---- state ------------------------------------------------------------
+  const prefs = loadPrefs();
+  let f = { ...DEFAULTS };
+  let filtersOpen = false;
+  let noteOpen = {}, menuOpen = {};
+  let sync = { state: 'synced', at: Date.now() };
 
-  const filters = createFilters(() => render());
+  const persistPrefs = () => savePrefs({ collapsed: prefs.collapsed, density: prefs.density });
 
-  const ctx = {
-    setFilter: (patch) => filters.set(patch),
-    resetFilters: () => filters.reset(),
-    isOpen: (id) => !folded.has(id),
-    toggleSection: (id) => { folded.has(id) ? folded.delete(id) : folded.add(id); render(); },
-    collapseAll: () => { allIds().forEach((id) => folded.add(id)); render(); },
-    expandAll: () => { folded.clear(); render(); },
-    isNoteOpen: (key) => openNote === key,
-    toggleNote: (key) => { openNote = openNote === key ? null : key; render(); },
-    isMenuOpen: (key) => openMenu === key,
-    toggleMenu: (key) => { openMenu = openMenu === key ? null : key; render(); },
-    writeMark: (key, patch) => writeMark(key, patch),
-    dropMark: (key) => dropMark(key),
+  // ---- actions ----------------------------------------------------------
+  const a = {
+    set: (patch) => { f = { ...f, ...patch }; render(); },
+    setQ: (q) => { f.q = q; render(); },
+    toggleStar: () => a.set({ star: !f.star }),
+    toggleShowRemoved: () => a.set({ showRem: !f.showRem }),
+    resetFilters: () => a.set({ ...DEFAULTS }),
+    toggleFilters: () => { filtersOpen = !filtersOpen; render(); },
+    toggleDensity: () => { prefs.density = prefs.density === 'compact' ? 'full' : 'compact'; persistPrefs(); render(); },
+    toggle: (id) => withViewTransition(() => {
+      if (prefs.collapsed[id]) delete prefs.collapsed[id]; else prefs.collapsed[id] = true;
+      persistPrefs(); render();
+    }),
+    expand: (id) => { if (!prefs.collapsed[id]) return; withViewTransition(() => { delete prefs.collapsed[id]; persistPrefs(); render(); }); },
+    collapseAll: () => withViewTransition(() => { prefs.collapsed = Object.fromEntries(SECTION_IDS.map((id) => [id, true])); persistPrefs(); render(); }),
+    expandAll: () => withViewTransition(() => { prefs.collapsed = {}; persistPrefs(); render(); }),
+    isNoteOpen: (k) => Boolean(noteOpen[k]),
+    toggleNote: (k) => { noteOpen[k] = !noteOpen[k]; render(); },
+    isMenuOpen: (k) => Boolean(menuOpen[k]),
+    toggleMenu: (k) => { menuOpen = { [k]: !menuOpen[k] }; render(); },
+    writeMark, clearMarks, signOut,
+    syncClick: async () => { sync = { state: 'syncing' }; render(); try { const m = await loadMarks(); marks.clear(); m.forEach((v, k) => marks.set(k, v)); sync = { state: 'synced', at: Date.now() }; } catch { sync = { state: 'offline' }; } render(); },
   };
 
-  const allIds = () =>
-    ['s1', ...JOB_SECTIONS.map((s) => s.id), 's7'];
-
-  // ---- writes -----------------------------------------------------------
-  // Apply locally, render immediately, persist after. If the write fails,
-  // put the old value back and raise the sync flag rather than leaving the
-  // screen claiming something the database does not hold.
+  // Local first, always, then persist. On failure restore and say so.
   async function writeMark(key, patch) {
     const before = marks.get(key) ?? null;
     marks.set(key, { ...(before ?? { item_id: key }), ...patch });
-    openMenu = null;
-    syncError = false;
+    menuOpen = {};
+    sync = { state: 'syncing' };
     render();
     try {
-      marks.set(key, await saveMark(key, patch));
+      const stored = await saveMark(key, patch);
+      marks.set(key, stored);
+      sync = { state: 'synced', at: Date.now() };
     } catch {
       before ? marks.set(key, before) : marks.delete(key);
-      syncError = true;
+      sync = { state: 'offline' };
     }
     render();
   }
 
-  async function dropMark(key) {
-    const before = marks.get(key) ?? null;
-    marks.delete(key);
-    openMenu = null;
-    render();
-    try {
-      await clearMark(key);
-    } catch {
-      if (before) marks.set(key, before);
-      syncError = true;
-      render();
-    }
-  }
-
-  async function wipeMarks() {
-    const ok = confirm(
-      'Clear every stage, note and removal you have marked?\n\n'
-      + 'This cannot be undone. Postings removed by the daily task are '
-      + 'not affected.');
-    if (!ok) return;
-    try {
-      await clearAllMarks();
-      marks.clear();
-    } catch {
-      syncError = true;
-    }
+  async function clearMarks() {
+    if (!confirm('Clear all stage marks, removals and notes?')) return;
+    try { await clearAllMarks(); marks.clear(); sync = { state: 'synced', at: Date.now() }; }
+    catch { sync = { state: 'offline' }; }
     render();
   }
 
-  // Close an open overflow menu when the click lands anywhere else.
-  document.addEventListener('click', () => {
-    if (openMenu) { openMenu = null; render(); }
-  });
+  document.addEventListener('click', () => { if (Object.keys(menuOpen).length) { menuOpen = {}; render(); } });
+
+  // ---- derived values (the artifact's renderVals) ----------------------
+  function entry(key, base) {
+    const mark = marks.get(key) ?? null;
+    return { ...base, key, mark, ...entryView(mark) };
+  }
+
+  function compute() {
+    const { loc, cat, q, star, showRem, stageF, sort } = f;
+    const ql = q.trim().toLowerCase();
+    const locLabels = meta.locations ?? {}, catLabels = meta.categories ?? {};
+
+    // funnel + stage buckets
+    const stageCounts = { applied: 0, confirmed: 0, interview: 0, offer: 0 };
+    let cActive = 0, cStale = 0, cOffer = 0, cClosed = 0;
+    for (const m of marks.values()) {
+      const st = m.stage; if (!st) continue;
+      if (stageCounts[st] !== undefined) stageCounts[st]++;
+      if (st === 'offer') { cOffer++; continue; }
+      if (st === 'rejected' || st === 'withdrawn') { cClosed++; continue; }
+      cActive++;
+      const at = m.stage_at ? new Date(m.stage_at).getTime() : 0;
+      if (at && (Date.now() - at) / 86_400_000 >= 14) cStale++;
+    }
+    const funnelLabel = ['applied', 'confirmed', 'interview', 'offer'].filter((k) => stageCounts[k]).map((k) => `${stageCounts[k]} ${k}`).join(' · ') || 'Nothing marked yet';
+    const cnt = (n) => (n ? ` (${n})` : '');
+    const stageOpts = [['all', 'All'], ['none', 'Untouched'], ['active', `In progress${cnt(cActive)}`], ['stale', `Stale >14d${cnt(cStale)}`], ['offer', `Offer${cnt(cOffer)}`], ['closed', `Closed${cnt(cClosed)}`]];
+
+    const view = (list) => applySort(sort, list.filter((e) => stageOk(stageF, e)));
+    const vis = (e) => showRem || !e.removed;
+    let shown = 0;
+
+    // ---- section 01 -------------------------------------------------------
+    const compMatch = (c) => !star && matchWords(ql, c.name, c.city, c.tags, c.description);
+    const company = (tier, c) => entry(companyKey(c.id.replace(/^\D+/, '')), { ...c, n: c.id.replace(/^\D+/, ''), tier });
+    const tierA = view(companies.filter((c) => c.tier === 'A' && compMatch(c)).map((c) => company('A', c)).filter(vis));
+    const tierB = view(companies.filter((c) => c.tier === 'B' && compMatch(c)).map((c) => company('B', c)).filter(vis));
+    const tierC = (stageF === 'all' || stageF === 'none')
+      ? companies.filter((c) => c.tier === 'C' && !star && matchWords(ql, c.name, c.city, c.product)).map((r) => ({ ...r, location: r.city, hasUrl: Boolean(r.url), host: r.url ? hostOf(r.url) : '' }))
+      : [];
+    const catOk = cat === 'all' || cat === 'firmen';
+    const tierABVisible = catOk && (loc === 'all' || loc === 'berlin') && tierA.length + tierB.length > 0;
+    const tierCVisible = catOk && (loc === 'all' || loc === 'de') && tierC.length > 0;
+    const s1Visible = tierABVisible || tierCVisible;
+    const s1Count = (tierABVisible ? tierA.length + tierB.length : 0) + (tierCVisible ? tierC.length : 0);
+    if (s1Visible) shown += s1Count;
+    const s1Parts = [];
+    if (tierABVisible) { if (tierA.length) s1Parts.push(`Tier A ${tierA.length}`); if (tierB.length) s1Parts.push(`Tier B ${tierB.length}`); }
+    if (tierCVisible && tierC.length) s1Parts.push(`Tier C ${tierC.length}`);
+    const s1Applied = tierA.concat(tierB).filter((c) => c.applied).length;
+    if (s1Applied) s1Parts.push(`${s1Applied} applied`);
+    const s1 = { visible: s1Visible, tierA, tierB, tierC, tierABVisible, tierCVisible, s1Count, collapsed: Boolean(prefs.collapsed.s1),
+      summary: [`${s1Count}${s1Count === 1 ? ' company' : ' companies'}`, s1Parts.length ? `· ${s1Parts.join(' · ')}` : ''] };
+
+    // ---- job sections -------------------------------------------------------
+    const jobView = (j) => {
+      const [pillBg, pillColor] = pill(j.location_group);
+      const e = entry(jobKey(j.n), { raw: j, n: j.n, title: j.title, titleOriginal: j.title_original, showOriginal: Boolean(j.title_original) && j.title_original !== j.title,
+        company: j.company, city: j.city, locLabel: locLabels[j.location_group] ?? j.location_label, catLabel: j.category_label ?? catLabels[j.category],
+        pillBg, pillColor, starred: Boolean(j.starred), hasElig: Boolean(j.eligibility_quote_de), eligDe: j.eligibility_quote_de, hasEligEn: Boolean(j.eligibility_en), eligEn: j.eligibility_en,
+        skills: j.skills ?? [], hasSkills: Boolean(j.skills?.length), hasSalary: Boolean(j.salary), salary: j.salary, hasNote: Boolean(j.note), note: j.note,
+        isDup: Boolean(j.duplicate_of), dupOf: j.duplicate_of, url: j.url, hasEmp: Boolean(j.employment), emp: j.employment ?? '',
+        removedByTask: Boolean(j.removed_on), removedOn: j.removed_on, removedWhy: j.removed_why });
+      // A posting the daily task struck off is removed too, and not yours to restore.
+      if (e.removedByTask) { e.removed = true; e.removedAttr = '1'; e.active = false; e.opacity = .5; e.strike = 'line-through'; }
+      e.bg = e.removed ? '#f5f1ea' : j.starred ? '#fffaf3' : '#fff';
+      e.borderLeft = j.starred ? '3px solid #7a1f2b' : e.stage === 'offer' ? '2px solid #7a1f2b' : '1px solid #cdc1ae';
+      e.borderStyle = e.removed ? 'dashed' : 'solid';
+      e.titleColor = (e.removed || e.stage === 'rejected' || e.stage === 'withdrawn') ? '#8b8079' : '#1c1518';
+      if (j.duplicate_of && !e.hasStage && !e.removed) e.opacity = .78;
+      return e;
+    };
+    const live = postings.filter((j) => !j.removed_on);
+    const sections = DEFS.map(([id, key, title, kick, hasSub, numOverride], i) => {
+      const all = postings.filter((j) => j.category === key);
+      const filt = view(all.filter((j) => (loc === 'all' || j.location_group === loc) && (!star || j.starred) && matchWords(ql, j.title, j.title_original, j.company, j.skills)).map(jobView).filter(vis));
+      const groups = hasSub ? [['berlin', 'Berlin'], ['leipzig', 'Leipzig'], ['de', 'Rest of Germany'], ['eu', 'Europe (outside Germany)']] : [[null, null]];
+      const subgroups = groups.map(([g, label]) => {
+        const total = g ? all.filter((j) => j.location_group === g && !j.removed_on).length : all.filter((j) => !j.removed_on).length;
+        const jobs = g ? filt.filter((j) => j.raw.location_group === g) : filt;
+        return { label, hasLabel: Boolean(label), swatch: g ? pill(g)[1] : 'transparent', total, shown: jobs.length, jobs, empty: jobs.length === 0, visible: !g || loc === 'all' || loc === g };
+      });
+      const visible = (cat === 'all' || cat === key) && !(loc !== 'all' && all.every((j) => j.location_group !== loc));
+      if (visible) shown += filt.length;
+      return { id, num: numOverride ?? `0${i + 2}`, kick, title, vtName: `vt${id.toUpperCase()}`, total: all.filter((j) => !j.removed_on).length, shown: filt.length, subgroups, visible,
+        collapsed: Boolean(prefs.collapsed[id]), summary: foldSummary(filt, 'posting', hasSub ? subgroups : null) };
+    });
+
+    // ---- boards --------------------------------------------------------------
+    const bs = boards.filter((b) => (loc === 'all' || b.location_group === loc) && !star && matchWords(ql, b.label)).map((b) => { const [pillBg, pillColor] = pill(b.location_group); return { ...b, pillBg, pillColor, locLabel: locLabels[b.location_group] ?? b.location_group, host: hostOf(b.url) }; });
+    const boardsVisible = cat === 'all' && stageF === 'all' && bs.length > 0;
+    if (boardsVisible) shown += bs.length;
+    const s7Parts = [];
+    ['berlin', 'leipzig', 'de'].forEach((g) => { const n = bs.filter((b) => b.location_group === g).length; if (n) s7Parts.push(`${locLabels[g] ?? g} ${n}`); });
+    const s7 = { visible: boardsVisible, boards: bs, nBoards: boards.length, collapsed: Boolean(prefs.collapsed.s7), summary: [`${bs.length}${bs.length === 1 ? ' job board' : ' job boards'}`, s7Parts.length ? `· ${s7Parts.join(' · ')}` : ''] };
+
+    // ---- counters ---------------------------------------------------------
+    const nRemoved = postings.filter((p) => p.removed_on || marks.get(jobKey(p.n))?.removed).length
+      + companies.filter((c) => marks.get(companyKey(c.id.replace(/^\D+/, '')))?.removed).length;
+    const syncLabel = sync.state === 'syncing' ? 'Syncing…' : sync.state === 'offline' ? 'Not synced'
+      : sync.state === 'synced' && sync.at ? `Synced ${new Date(sync.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '';
+
+    return {
+      ...f, filtersOpen, density: prefs.density, funnelLabel, stageOpts, nRemoved, nShown: shown,
+      syncState: isRunning(journal) ? 'syncing' : sync.state, syncLabel: isRunning(journal) ? 'Run in progress' : syncLabel,
+      nJobs: live.length, nCompanies: companies.length, nStarred: live.filter((j) => j.starred).length, nBoards: boards.length,
+      nUrls: new Set(postings.map((p) => p.url)).size,
+      filterRule: String(meta.filter_rule ?? '').split('||')[0].trim(), sourceFile: meta.source_file ?? '—', updatedLabel: meta.updated ?? '—',
+      removedMasters: meta.removed_audit?.masters_required ?? '', removedPhd: meta.removed_audit?.phd_required ?? '',
+      s1, sections, s7,
+      navItems: NAV.map(([id, num, short]) => ({ id, num, short, onClick: () => queueMicrotask(() => a.expand(id)) })),
+      ...journalVals(),
+    };
+  }
+
+  function journalVals() {
+    const byN = new Map(postings.map((p) => [p.n, p]));
+    const labels = meta.categories ?? {};
+    const runs = journal.map((r, i) => {
+      const dec = (c) => { const p = c.posting_n != null ? byN.get(c.posting_n) : null; return { title: c.title ?? '', company: c.company ?? '', why: c.why ?? '', hasUrl: Boolean(p?.url), url: p?.url, hasLoc: Boolean(p?.location_label), loc: p?.location_label, hasEmp: Boolean(p?.employment), emp: p?.employment, category: p?.category }; };
+      const inList = r.in.map(dec), outList = r.out.map(dec);
+      const buckets = new Map();
+      for (const x of inList) { const lab = labels[x.category] ?? 'Added'; if (!buckets.has(lab)) buckets.set(lab, []); buckets.get(lab).push(x); }
+      const running = r.status === 'in_progress', unfinished = r.status === 'did_not_finish';
+      const pc = r.per_category ? Object.entries(r.per_category).map(([k, v]) => `${k} ${v}`).join(' · ') : '';
+      const ev = r.evaluated ? Object.entries(r.evaluated).map(([k, v]) => `${k} ${v}`).join(' · ') : '';
+      const n = (v) => (v == null ? '—' : v);
+      return { dateLabel: longDate(r.run_date), isLatest: i === 0 || running, nIn: inList.length, nOut: outList.length,
+        hasStatus: running || unfinished, status: running ? 'In progress' : 'Did not finish', statusBg: running ? '#7a4b12' : '#7a1f2b', unfinished,
+        stats: `checked ${n(r.checked)} · live ${n(r.live)} · transient ${n(r.transient)}`,
+        groups: [...buckets].map(([label, items]) => ({ label, n: items.length, items })), hasOut: outList.length > 0, outList,
+        noChanges: r.status === 'done' && !inList.length && !outList.length,
+        widenedList: r.widened ?? [], hasCats: Boolean(pc), catText: pc, hasEval: Boolean(ev), evalText: ev, notes: r.note ? [r.note] : [] };
+    });
+    return { journal: runs, nJournal: new Set(journal.map((r) => r.run_date)).size, nRuns: journal.length, noJournal: runs.length === 0 };
+  }
 
   // ---- render -----------------------------------------------------------
   function render() {
-    const state = filters.get();
-    const visibleJobs = sortPostings(
-      filterPostings(postings, state, marks), state.sort);
-    const visibleCompanies = filterCompanies(companies, state, marks);
-    const visibleBoards = filterBoards(boards, state);
+    const v = compute();
+    const root = el('div', { style: 'min-height:100vh', 'data-print-visible': '1', 'data-density': v.density });
+    root.append(filterBar(v, a));
 
-    const root = el('div', { 'data-density': state.density });
+    const shell = el('div', { style: 'max-width:1440px;margin:0 auto;padding:0 28px 96px' });
+    shell.append(masthead(v), sectionNav(v.navItems));
 
-    root.append(filterBar(state, meta, {
-      shown: visibleJobs.length,
-      removed: countRemoved(postings, marks),
-      sync: { running: isRunning(journal), error: syncError },
-    }, { ...ctx, collapseAll: ctx.collapseAll, expandAll: ctx.expandAll }));
+    const sections = el('div', { 'data-sections': '1' });
+    if (v.s1.visible) sections.append(companySection(v.s1, a));
+    for (const sec of v.sections) if (sec.visible) sections.append(jobSection(sec, a));
+    if (v.s7.visible) sections.append(jobBoards(v.s7, a));
+    shell.append(sections);
 
-    const shell = el('div', { class: 'shell' });
-
-    shell.append(masthead(meta, {
-      postings: postings.filter((p) => !p.removed_on).length,
-      companies: companies.length,
-      starred: postings.filter((p) => p.starred && !p.removed_on).length,
-      boards: boards.length,
-    }));
-
-    shell.append(sectionNav(navItems(state)));
-
-    if (visibleCompanies.length) {
-      shell.append(companySection(visibleCompanies, ctx));
-    }
-
-    for (const spec of JOB_SECTIONS) {
-      const inSection = visibleJobs.filter((j) => j.category === spec.category);
-      const total = postings.filter(
-        (j) => j.category === spec.category && !j.removed_on).length;
-      if (!total) continue;
-      shell.append(jobSection(
-        { ...spec, ...titleFor(spec), num: numFor(spec.id) },
-        inSection, total, marks, ctx));
-    }
-
-    if (visibleBoards.length) {
-      shell.append(jobBoards(visibleBoards, boards.length, ctx));
-    }
-
-    shell.append(dailyLog(enrichJournal(journal, postings), meta));
-    const audit = auditTrail(meta);
-    if (audit) shell.append(audit);
-    shell.append(footer(meta, { postings: postings.length }, wipeMarks));
-    shell.append(el('p', {
-      style: 'margin-top:18px;font-family:var(--mono);font-size:11px',
-    }, el('button', { class: 'link-btn', onclick: signOut }, 'Sign out')));
-
+    shell.append(dailyLog(v), auditTrail(v), footer(v, a));
     root.append(shell);
     fill(mount, root);
   }
 
-  function navItems(state) {
-    const items = [];
-    if (filterCompanies(companies, state, marks).length) {
-      items.push({ id: 's1', short: 'Priority' });
-    }
-    for (const spec of JOB_SECTIONS) {
-      const total = postings.filter(
-        (j) => j.category === spec.category && !j.removed_on).length;
-      if (total) items.push({ id: spec.id, short: spec.kick });
-    }
-    items.push({ id: 's7', short: 'Job Boards' });
-    return items;
-  }
-
-  function titleFor(spec) {
-    const stored = (meta.sections ?? []).find((s) => s.id === spec.id);
-    return {
-      title: stored?.title ?? FALLBACK_TITLES[spec.id] ?? spec.kick,
-      subgroups: stored?.subgroups ?? null,
-    };
-  }
-
-  const numFor = (id) => {
-    const order = ['s1', ...JOB_SECTIONS.map((s) => s.id), 's7'];
-    return String(order.indexOf(id) + 1).padStart(2, '0');
-  };
-
   render();
 
   return {
-    /**
-     * Swap in freshly loaded server state. Called by the poll in boot.js,
-     * so a page left open overnight shows the postings the morning run
-     * added and stops showing the ones it struck off — previously only
-     * the journal refreshed, and the cards silently went stale.
-     */
-     updateData(next) {
+    updateData(next) {
       if (next.postings) postings = next.postings;
       if (next.companies) companies = next.companies;
       if (next.boards) boards = next.boards;
@@ -223,28 +262,4 @@ export function renderPage(mount, data) {
       render();
     },
   };
-}
-
-function countRemoved(postings, marks) {
-  return postings.filter(
-    (p) => p.removed_on || marks.get(jobKey(p.n))?.removed).length;
-}
-
-/**
- * The journal stores only title/company/why per change, plus a link to
- * postings.n. Joining that link back here gives the log block the
- * category it groups by and the url it links to — an exact join, where
- * the artifact had to match on title text.
- */
-function enrichJournal(journal, postings) {
-  const byN = new Map(postings.map((p) => [p.n, p]));
-  const decorate = (c) => {
-    const p = c.posting_n != null ? byN.get(c.posting_n) : null;
-    return { ...c, category: p?.category ?? null, url: p?.url ?? null };
-  };
-  return journal.map((run) => ({
-    ...run,
-    in: run.in.map(decorate),
-    out: run.out.map(decorate),
-  }));
 }

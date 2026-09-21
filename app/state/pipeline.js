@@ -1,93 +1,103 @@
-// The application pipeline as a small state machine.
+// The application pipeline, exactly as the artifact had it.
 //
-// Stages advance in one direction under the primary button; everything
-// else (offer, rejection, withdrawal, stepping back) is an explicit
-// choice from the overflow menu, so a stray click can never quietly
-// record an outcome that did not happen.
+//   (none) → applied → confirmed → interview 1 → interview 2 → …
+//   and from anywhere via the ⋯ menu: offer · rejected · withdrawn
+//
+// One primary button always moves forward one step; everything sideways or
+// backwards is an explicit menu choice, so a stray click never records an
+// outcome that did not happen.
 
-export const STAGES = {
-  applied:   { label: 'Applied',    dot: '#7a4b12', next: 'interview' },
-  interview: { label: 'Interview',  dot: '#1f5c7a', next: 'interview' },
-  offer:     { label: 'Offer',      dot: '#33543f', next: null },
-  rejected:  { label: 'Rejected',   dot: '#7a1f2b', next: null },
-  withdrawn: { label: 'Withdrawn',  dot: '#8b8079', next: null },
-};
-
-export const ORDER = ['applied', 'interview', 'offer'];
-const TERMINAL = new Set(['offer', 'rejected', 'withdrawn']);
-
+export const TERMINAL = new Set(['offer', 'rejected', 'withdrawn']);
 export const isTerminal = (stage) => TERMINAL.has(stage);
 
-/** The label for the primary button given the current mark. */
-export function advanceLabel(mark) {
-  if (!mark?.stage) return '✓ Applied';
-  if (mark.stage === 'applied') return '→ Interview';
-  if (mark.stage === 'interview') {
-    return `→ Interview ${(mark.round ?? 1) + 1}`;
-  }
-  return null; // terminal: the primary button is hidden
-}
+const DOT = {
+  applied: '#8b8079', confirmed: '#7a4b12', interview: '#7a1f2b',
+  offer: '#7a1f2b', rejected: '#8b8079', withdrawn: '#8b8079',
+};
+const STAGE_LABEL = { applied: 'Confirmation received ›', confirmed: 'Interview 1 done ›' };
 
-/** The mark that results from pressing the primary button. */
+/** The mark after pressing the primary button. */
 export function advance(mark) {
-  const now = new Date().toISOString();
-  if (!mark?.stage) return { stage: 'applied', round: null, stage_at: now };
-  if (mark.stage === 'applied') {
-    return { stage: 'interview', round: 1, stage_at: now };
-  }
-  if (mark.stage === 'interview') {
-    return { stage: 'interview', round: (mark.round ?? 1) + 1, stage_at: now };
-  }
-  return mark;
+  const s = mark?.stage ?? null, r = mark?.round ?? 0;
+  if (!s) return { stage: 'applied', round: 0, stage_at: now() };
+  if (s === 'applied') return { stage: 'confirmed', round: 0, stage_at: now() };
+  if (s === 'confirmed') return { stage: 'interview', round: 1, stage_at: now() };
+  if (s === 'interview') return { stage: 'interview', round: r + 1, stage_at: now() };
+  return null;
 }
 
-/** One step back down the ladder; from the first stage it clears. */
+/** Reverses one advance() step. Terminal stages step back to interview 1. */
 export function stepBack(mark) {
-  const now = new Date().toISOString();
-  if (!mark?.stage) return { stage: null, round: null, stage_at: null };
-  if (mark.stage === 'interview' && (mark.round ?? 1) > 1) {
-    return { stage: 'interview', round: mark.round - 1, stage_at: now };
-  }
-  if (mark.stage === 'interview') {
-    return { stage: 'applied', round: null, stage_at: now };
-  }
-  if (isTerminal(mark.stage)) {
-    return { stage: 'interview', round: 1, stage_at: now };
-  }
-  return { stage: null, round: null, stage_at: null };
+  const s = mark?.stage ?? null, r = mark?.round ?? 0;
+  if (!s) return null;
+  if (isTerminal(s)) return { stage: 'interview', round: 1, stage_at: now() };
+  if (s === 'interview' && r > 1) return { stage: 'interview', round: r - 1, stage_at: now() };
+  if (s === 'interview') return { stage: 'confirmed', round: 0, stage_at: now() };
+  if (s === 'confirmed') return { stage: 'applied', round: 0, stage_at: now() };
+  return { stage: null, round: 0, stage_at: null };
 }
 
-/** Whole days elapsed since the stage was set. */
-export function waitingDays(mark, now = Date.now()) {
-  if (!mark?.stage_at) return null;
-  const ms = now - new Date(mark.stage_at).getTime();
-  return Math.max(0, Math.floor(ms / 86_400_000));
-}
+export const setStage = (stage) => ({ stage, round: 0, stage_at: now() });
+export const clearStage = () => ({ stage: null, round: 0, stage_at: null });
+
+const now = () => new Date().toISOString();
 
 /**
- * How the waiting time should read. Silence is only worth flagging once
- * it has run long enough to mean something: a fortnight after applying,
- * a week after an interview.
+ * Everything a card needs to know about its mark: the same fields the
+ * artifact's `entry()` computed, under the same names, so the template
+ * markup binds to them unchanged.
  */
-export function waitingState(mark) {
-  const days = waitingDays(mark);
-  if (days === null || isTerminal(mark.stage)) return null;
+export function entryView(mark) {
+  const stage = mark?.stage ?? null;
+  const round = mark?.round ?? 0;
+  const removed = Boolean(mark?.removed);
+  const noteText = mark?.note ?? '';
+  const hasStage = Boolean(stage);
+  const terminal = isTerminal(stage);
+  const at = mark?.stage_at ? new Date(mark.stage_at).getTime() : 0;
+  const days = at ? Math.floor((Date.now() - at) / 86_400_000) : null;
+  const stale = hasStage && !terminal && days !== null && days >= 14;
+  const dot = DOT[stage] ?? '#8b8079';
+  const dimmed = removed || stage === 'rejected' || stage === 'withdrawn';
+  const hasWait = hasStage && !terminal && days !== null;
 
-  const threshold = mark.stage === 'interview' ? 7 : 14;
+  let stageLabel = '';
+  if (stage === 'interview') stageLabel = `INTERVIEW ${round}`;
+  else if (stage) stageLabel = stage.toUpperCase();
+
+  const advanceLabel = !stage ? 'Mark applied ›'
+    : stage === 'interview' ? `Interview ${round + 1} done ›`
+    : (STAGE_LABEL[stage] ?? '');
+
   return {
-    days,
-    label: days === 0 ? 'today' : days === 1 ? '1 day' : `${days} days`,
-    prefix: mark.stage === 'interview' ? 'waiting since interview' : 'waiting',
-    overdue: days >= threshold,
+    stage, round, hasStage, terminal, stale, removed, noteText,
+    applied: hasStage, active: !removed,
+    removedAttr: removed ? '1' : '0',
+    opacity: dimmed ? .5 : 1,
+    strike: removed ? 'line-through' : 'none',
+    border: removed ? '1px dashed #cdc1ae' : '1px solid #cdc1ae',
+    // company-card "Applied" toggle colours
+    apBorder: hasStage ? '#7a1f2b' : '#d9d0c2', apBg: hasStage ? '#7a1f2b' : 'transparent', apColor: hasStage ? '#fff' : '#5a504b',
+    apBorderDk: hasStage ? '#e2a2aa' : 'rgba(245,241,234,.35)', apBgDk: hasStage ? '#e2a2aa' : 'transparent', apColorDk: hasStage ? '#1c1518' : 'rgba(245,241,234,.8)',
+    // stage line
+    stageLabel, stageDot: dot,
+    stageLabelBg: stage === 'offer' ? '#7a1f2b' : 'transparent',
+    stageLabelColor: stage === 'offer' ? '#fff' : dot,
+    stageLabelPad: stage === 'offer' ? '2px 8px' : '0',
+    stageLabelRadius: stage === 'offer' ? '3px' : '0',
+    stageLabelStrike: stage === 'rejected' ? 'line-through' : 'none',
+    hasWait, waitPrefixLabel: hasWait ? 'waiting ' : '', waitDaysLabel: hasWait ? `${days}d` : '',
+    waitColor: stale ? '#7a4b12' : '#8b8079', waitDays: hasWait ? days : -1,
+    hasAdvance: !terminal, advanceLabel,
   };
 }
 
-/** The stage label for a card, including the interview round. */
-export function stageLabel(mark) {
-  if (!mark?.stage) return null;
-  const base = STAGES[mark.stage]?.label ?? mark.stage;
-  if (mark.stage === 'interview' && (mark.round ?? 1) > 1) {
-    return `${base} ${mark.round}`;
-  }
-  return base;
+/** Colours for a notes button: lit when a note exists or the box is open. */
+export function noteBtn(noteOpen, noteText) {
+  const lit = noteOpen || Boolean(noteText);
+  return {
+    ntBorder: lit ? '#7a1f2b' : '#d9d0c2',
+    ntBg: noteOpen ? '#f3dcdc' : 'transparent',
+    ntColor: lit ? '#7a1f2b' : '#5a504b',
+  };
 }
