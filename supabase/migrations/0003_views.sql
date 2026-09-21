@@ -17,3 +17,22 @@ create or replace view public.journal_by_day as
          (array_agg(live ORDER BY started_at DESC))[1] as live
     from journal j
    group by run_date;
+
+-- REQUIRED, and the reason is not cosmetic.
+--
+-- A Postgres view runs as its OWNER by default. This one is owned by
+-- `postgres`, so without the line below it reads `journal` and
+-- `journal_changes` with the owner's rights and hands the rows to whoever
+-- queries the view — bypassing the row-level security on those tables
+-- entirely. The effect is that an ANONYMOUS caller, holding nothing but
+-- the publishable key that ships in app/config.js, can read the aggregated
+-- daily log: run dates, how many postings moved, how many were checked.
+--
+-- `security_invoker = true` makes the view run as the CALLER instead, so
+-- the base tables' policies apply and an anonymous request returns zero
+-- rows. Never drop this line, and never `create or replace` this view
+-- without re-applying it.
+--
+-- Found in review on 2026-09-21; the first version of this migration
+-- shipped without it.
+alter view public.journal_by_day set (security_invoker = true);

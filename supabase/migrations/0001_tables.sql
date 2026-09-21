@@ -103,4 +103,5 @@ create table if not exists public.meta (
 create index if not exists postings_category_idx on public.postings (category);
 create index if not exists postings_live_idx     on public.postings (removed_on) where removed_on is null;
 create index if not exists journal_date_idx      on public.journal (run_date desc);
-create index if not exists changes_journal_idx   on public.journal_changes (journal_id);
+-- the view filters on journal_id constantly; without this it seq-scans
+create index if not exists journal_changes_journal_id_idx on public.journal_changes (journal_id);
