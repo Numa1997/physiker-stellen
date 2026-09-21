@@ -1,3 +1,7 @@
 # Nothing built, nothing installed — there is no build step.
 .DS_Store
 *.log
+
+# Local tooling only (e.g. Playwright for headless checks). Nothing here ships.
+node_modules/
+package-lock.json
