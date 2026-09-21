@@ -1,0 +1,3 @@
+# Nothing built, nothing installed — there is no build step.
+.DS_Store
+*.log

@@ -1,0 +1,38 @@
+/* Print: the dossier on paper. Controls go, colour goes, cards stay whole. */
+
+.bar, .nav, .actions, .stage, .note-box,
+.removed-banner, .link-btn, .foot button { display: none !important; }
+
+body { background: #fff; font-size: 11pt; }
+.shell { max-width: none; padding: 0; }
+
+/* Everything folded on screen is opened on paper — a printed dossier with
+   collapsed sections is a dossier with holes in it. */
+.fold { grid-template-rows: 1fr !important; }
+.fold > div { overflow: visible !important; }
+details { display: block; }
+details > summary { list-style: none; }
+details:not([open]) > *:not(summary) { display: revert !important; }
+
+.card, .co-card, .day {
+  break-inside: avoid;
+  border: 1px solid #bbb;
+  box-shadow: none;
+}
+.grid3 { grid-template-columns: repeat(2, 1fr); }
+
+/* The dark company section inverts badly on paper. */
+.s1 { background: #fff !important; color: #000 !important; margin: 0 0 32px; }
+.s1 .section__kicker, .s1__tier em { color: #000 !important; }
+.s1 .co-card--b { background: #fff !important; color: #000 !important; border-color: #bbb; }
+.tier-c th, .tier-c td, .tier-c a { color: #000 !important; }
+
+/* Show where a link actually goes, since it cannot be clicked. */
+.card__title a::after {
+  content: ' (' attr(href) ')';
+  font-family: var(--mono); font-size: 8pt; font-weight: 400; color: #555;
+  word-break: break-all;
+}
+
+.section { break-inside: auto; }
+.section__head { break-after: avoid; }
