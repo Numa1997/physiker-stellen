@@ -290,7 +290,9 @@ Set `category_label` from `meta.categories` and `location_label` from
    the natural sciences by definition and count. Wording that demands an
    engineering degree and nothing else disqualifies it.
 4. **LEVEL** (eight original categories; the NEW BLOCK has its own rule
-   above). Entry-level to mid-level, open to a BSc physicist.
+   above). Entry-level to mid-level, open to a BSc physicist. **Numa has
+   prior team-lead experience** — this changes the bar for one category
+   only, below.
    - ALLOWED: trainee, graduate programme, junior, Berufseinsteiger,
      Quereinsteiger, direct entry.
    - EXCLUDED: student jobs, Werkstudent, Praktikum, internship,
@@ -304,6 +306,16 @@ Set `category_label` from `meta.categories` and `location_label` from
      "Master's or PhD required" are not.
    - If a posting is obviously not aimed at a BSc physicist starting out,
      leave it out even if it technically passes the wording test.
+   - **Exception — "team lead / team management" only:** do NOT exclude a
+     posting for asking "Führungserfahrung" / "mehrjährige
+     Führungserfahrung" / prior people-management experience. That is the
+     job description for this category, not a seniority bar, and Numa has
+     it. Still exclude on the other grounds above (Master/PhD as the
+     stated *degree* minimum, Director/Head-of/VP-level scope, or years of
+     experience that are clearly about deep technical seniority rather
+     than team leadership). A posting asking for "erste
+     Führungserfahrung" or several years of leading a small team is
+     exactly what this category is for — add it.
 
 Open the employer's page and read the requirements before adding anything.
 Never add from a search-result snippet. Skip anything already in the list
