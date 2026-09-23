@@ -34,6 +34,13 @@ Consequences for you:
 - The deploy `features` list becomes exactly `["api", "auth", "database"]`.
   Nothing else.
 
+**Parallel run — do not touch the old system.** Numa's previous version
+(a static page plus a Supabase database, updated each morning by an existing
+scheduled task) keeps running, unchanged, until Numa personally declares this
+AppDeploy version fully built, tested and working on its own. You have no
+access to it and no task there. Nothing in this project deletes, pauses or
+migrates away from it; the data below was *copied* out of it, read-only.
+
 ## 1. Hard facts about the platform (verified today, 2026-09-23)
 
 - Free tier: **100 credits per UTC day. A deploy needs at least 14.** Today's
@@ -56,7 +63,7 @@ Consequences for you:
 |---|---|
 | **You (Codex)** | `backend/**` **except** `backend/data/**`, `cron.json` (delete), `appdeploy.auth-login.json`, `tests/tests.json`, `package.json`, `HANDOFF.md` |
 | **Opus** | `backend/data/**` (content), `src/**`, `index.html`, all CSS |
-| **Exterior daily agent** | `backend/data/*.json` only, via diffs |
+| **Exterior daily agent** (ChatGPT scheduled task) | `backend/data/postings.json`, `meta.json`, `journal.json` only, via diffs |
 
 You create `backend/data/*` **once**, as small fixtures in the exact format
 below, so your backend runs. After that you never edit them — Opus replaces
@@ -112,6 +119,15 @@ is never deleted — the page has a "show removed" toggle.
 (ints), `per_category`, `evaluated`, `widened` (JSON), `note` (text), and
 `changes`: array of `{ direction: "in"|"out", posting_n, title, company, why }`.
 
+Facts from the real export (already done by Opus, md5-verified against the
+source database; kept out of the public GitHub repo on purpose — it reaches
+the app only in Opus's deploy, behind the login):
+115 postings (113 live), `n` from 1 up to 319 with gaps, 29 companies, 6
+boards, 10 meta keys, 10 journal runs with 32 changes. Lines are compact JSON
+(`separators=(',',':')`), keys in the order listed above, so every posting
+line starts with `{"n":<n>,`. **Company ids are `c1`–`c14` (tiers A/B) and
+`tc1`–`tc15` (tier C).**
+
 Fixtures: 2 postings (one live, one with `removed_on` set), 1 company,
 1 job board, the `updated` and `counts` meta keys, 1 journal run with 1
 change. Invent plainly fake values ("Fixture GmbH"); nothing that could be
@@ -152,10 +168,11 @@ mistaken for a real vacancy.
 
 4. **Marks** — keep `backend/marks.ts` and its storage
    (`'dossier-marks:' + userId`), switch its guards to `requireOwner()`.
-   Verify the key regex `^[jc]\d{1,10}$` against the ids the frontend really
-   sends for companies (look at `companies.json` `id` values and at
-   `src/claude/view/company-section.js`). If company ids are not `c<digits>`,
-   widen the regex to exactly what they are — no wider.
+   The current key regex `^[jc]\d{1,10}$` **rejects `tc1`–`tc15`**. Read
+   `src/claude/view/company-section.js` to see whether tier-C rows can be
+   marked at all. If they can, the regex becomes exactly
+   `^(j\d{1,6}|c\d{1,3}|tc\d{1,3})$`; if they cannot, keep `j`/`c` and say
+   so in the report. No wider.
 
 5. **`tests/tests.json`** — replace crawler tests with: login page reachable;
    `/api/dossier` 401 without session; after login the page shows the
@@ -223,7 +240,7 @@ Review as a stranger who has not seen why any decision was made. Look for:
    no longer sends (renders as `undefined`, empty sections, NaN counts).
 4. **Mark persistence across a deploy** — marks set before Opus's deploy
    must still be there after it. Say whether you could verify this.
-5. **The daily agent's prompt** (`docs/appdeploy-migration/daily-task-prompt.md`
+5. **The daily agent's prompt** (`docs/appdeploy-migration/daily-task-prompt-chatgpt.md`
    in the GitHub repo `numa1997/physiker-stellen`, or pasted by Numa): can its
    diffs ever touch a file outside `backend/data/`? Can a failed run leave a
    half-written file? Does it check the baton before deploying? Does it deploy

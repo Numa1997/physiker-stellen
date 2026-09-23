@@ -5,3 +5,5 @@
 # Local tooling only (e.g. Playwright for headless checks). Nothing here ships.
 node_modules/
 package-lock.json
+# The job list is private: it goes to AppDeploy behind the login, never into this public repo.
+appdeploy/data/
