@@ -1,7 +1,7 @@
 # Moving to AppDeploy: plan and split of work
 
 Target: one platform. AppDeploy hosts the site, handles the login and stores
-Numa's marks. An exterior agent (the Cowork scheduled task) edits the data
+Numa's marks. An exterior agent (a ChatGPT scheduled task) edits the data
 files each morning and deploys. AppDeploy runs no AI and no cron.
 Supabase is used once, to copy the current list out, and is then dropped.
 
@@ -25,8 +25,8 @@ Supabase is used once, to copy the current list out, and is then dropped.
 | 1 | Codex | Remove the crawler, add an owner-only guard on every route, serve `/api/dossier` from the data files, keep marks, add fixtures, update tests. | 1 |
 | 2 | Opus | Swap the fixtures for the real data, check the frontend against the artifact (Playwright), check that marks survive a deploy, update `HANDOFF.md`. | 1 |
 | 3 | Codex | Read-only review of phase 2 and the daily prompt. | 0 |
-| 4 | Opus | Fix the review findings, then cut over: point the Cowork task at AppDeploy and run it once by hand. | 1–2 |
-| 5 | Numa | Attach the AppDeploy connector to the Cowork task (if that needs the UI). Pause Supabase. | 0 |
+| 4 | Opus | Fix the review findings, then cut over: hand Numa the daily prompt for the ChatGPT scheduled task and run it once by hand. | 1–2 |
+| 5 | Numa | Create the ChatGPT scheduled task with the AppDeploy connector. Stop the old Cowork task. Pause Supabase. | 0 |
 
 That is 3–4 deploys in total over 2 days, then 1 per day.
 

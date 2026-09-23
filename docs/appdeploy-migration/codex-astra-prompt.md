@@ -17,7 +17,7 @@ only**: serve the site, run the login, and store Numa's personal marks
 (applied / interview / removed / notes). **AppDeploy does no research.**
 
 Finding, verifying and removing job postings is done by an **exterior AI
-agent** (a scheduled Cowork task) that edits data files in this app through
+agent** (a scheduled ChatGPT task) that edits data files in this app through
 the AppDeploy connector and deploys once a day — exactly like someone editing
 a file in a repo and publishing. Numa said it in these words: *"THE APPDEPLOY
 JOB IS SIMPLY TO HOST OUR WORK."*
