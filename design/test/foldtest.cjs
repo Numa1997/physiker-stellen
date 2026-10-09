@@ -55,7 +55,7 @@ require('fs').mkdirSync(out, { recursive: true });
     check(p + 'Collapse all closes every section', allShut);
 
     if (label === 'desktop') {
-      await page.click('nav.jump a[href="#cat-energy"]');
+      await page.click('#cat-energy > [data-head]');
       await page.waitForTimeout(1200);
       s = await state('cat-energy');
       const eTop = await page.$eval('#cat-energy', n => Math.round(n.getBoundingClientRect().top));

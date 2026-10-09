@@ -77,7 +77,7 @@ const peakSpeed = pts => { let m = 0; for (let i = 0; i < pts.length; i++) for (
   // 6. Target sizes of the interactive parts (WCAG 2.2 AA asks for at least 24 x 24 CSS px; AAA for 44)
   await page.click('#cat-ai > [data-head] [data-toggle]'); await page.waitForTimeout(500);
   await page.click('#area-ai-berlin > [data-head] [data-toggle]'); await page.waitForTimeout(500);
-  const sel = ['.toggle', '.atoggle', '.chip', '.foldbtn', '.search', '.more', '.remove', '.acts button', '.acts a', '.actions a', '.add', '.signout', '.foldbar'];
+  const sel = ['.toggle', '.atoggle', '.chip', '.foldbtn', '.ubtn', '.fbtn', '.segbtn', '.cchip', '.tag', '.search', '.more', '.remove', '.acts button', '.acts a', '.actions a', '.add', '.signout', '.foldbar'];
   const sizes = await page.evaluate(sel => sel.map(q => { const els = [...document.querySelectorAll(q)].filter(e => e.getBoundingClientRect().width > 0 && !e.closest('[inert]')); if (!els.length) return [q, null]; const r = els.map(e => e.getBoundingClientRect()); return [q, Math.round(Math.min(...r.map(x => x.width))), Math.round(Math.min(...r.map(x => x.height)))]; }), sel);
   console.log('6. smallest interactive targets (width x height, px):', sizes.filter(s => s[1] !== null).map(s => `${s[0]} ${s[1]}x${s[2]}`).join(' | '));
 

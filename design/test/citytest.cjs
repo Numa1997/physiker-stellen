@@ -103,7 +103,7 @@ const peakSpeed = pts => { let m = 0; for (let i = 0; i < pts.length; i++) for (
     check(p + 'closing a city from deep inside never jumps (travel ' + travel + 'px, peak ' + maxSpeed.toFixed(1) + 'px/ms)', Math.abs(deep[0][1] - catLine) <= 2 && (await st('#area-ai-leipzig')).c === '1' && (travel <= 2 || maxSpeed <= 3.2 * travel / Math.max(settle, 1)), JSON.stringify(deep.filter((_, i) => i % 4 === 0)));
 
     // ---- a city opened low in the window glides up under the category header
-    await page.click('#collapse-all, .foldbtn:nth-child(2)'); await page.waitForTimeout(300);
+    await page.click('#collapse-all, .foldbtn:nth-child(2), .ubtn:nth-child(2)'); await page.waitForTimeout(300);
     await top0();
     await page.click('#cat-data > [data-head] h2'); await page.waitForTimeout(900);
     await page.click('#area-data-berlin > [data-head] [data-toggle]'); await page.waitForTimeout(900);
@@ -122,10 +122,10 @@ const peakSpeed = pts => { let m = 0; for (let i = 0; i < pts.length; i++) for (
     check(p + 'closing a category from deep inside a city never jumps (travel ' + ctravel + 'px)', Math.abs(cdeep[0][1] - B) <= 2 && ctravel <= 2 || cmax <= 3.2 * ctravel / Math.max(csettle, 1), JSON.stringify(cdeep.filter((_, i) => i % 4 === 0)));
 
     // ---- Expand all / Collapse all reach both levels
-    await page.click('#expand-all, .foldbtn:nth-child(1)'); await page.waitForTimeout(300);
+    await page.click('#expand-all, .foldbtn:nth-child(1), .ubtn:nth-child(1)'); await page.waitForTimeout(300);
     const allOpen = await page.evaluate(() => [...document.querySelectorAll('section.cat, .area')].every(n => n.getAttribute('data-collapsed') === '0'));
     const nAreas = await page.$$eval('.area', a => a.length);
-    await page.click('#collapse-all, .foldbtn:nth-child(2)'); await page.waitForTimeout(300);
+    await page.click('#collapse-all, .foldbtn:nth-child(2), .ubtn:nth-child(2)'); await page.waitForTimeout(300);
     const allShut = await page.evaluate(() => [...document.querySelectorAll('section.cat, .area')].every(n => n.getAttribute('data-collapsed') === '1'));
     check(p + 'Expand all / Collapse all open and close categories and all ' + nAreas + ' cities', allOpen && allShut && nAreas === 3 * (await page.$$eval('section.cat', s => s.length - (s.some(x => x.id === 'record') ? 1 : 0))));
 
@@ -138,8 +138,9 @@ const peakSpeed = pts => { let m = 0; for (let i = 0; i < pts.length; i++) for (
     check(p + 'open category and open city remembered after reload', remembered.cats.join() === 'cat-pm' && remembered.areas.join() === 'area-pm-leipzig', JSON.stringify(remembered));
 
     // ---- one-city filter opens that city by itself; back to all restores
-    const chip = KIND === 'app' ? 'button.chip:has-text("Berlin")' : '[data-loc="berlin"]';
-    const allChip = KIND === 'app' ? 'button.chip:has-text("All areas")' : '[data-loc="all"]';
+    const chip = KIND === 'app' ? 'button.segbtn:has-text("Berlin")' : '[data-loc="berlin"]';
+    const allChip = KIND === 'app' ? 'button.segbtn:has-text("All areas")' : '[data-loc="all"]';
+    if (KIND === 'app' && (await page.getAttribute('#fpanel', 'data-open')) === '0') { await page.click('.fbtn'); await page.waitForTimeout(450); }
     await page.click(chip); await page.waitForTimeout(400);
     const f = await page.evaluate(() => ({ shown: [...document.querySelectorAll('#cat-pm .area')].map(a => a.id + ':' + a.getAttribute('data-collapsed')) }));
     await page.click('#area-pm-berlin > [data-head] [data-toggle]'); await page.waitForTimeout(500);

@@ -124,6 +124,8 @@ export function renderPage(mount, data) {
   let areas = data.areas ?? [];
 
   let area = store.get('radar.area', 'all');
+  let cat = store.get('radar.cat', 'all');   // 'all' or one category key: the board then shows only that category
+  let filterOpen = false;                    // the filter panel starts closed; it is only needed to change the view
   let form = null;          // { category, url, title, company, city, area, error, busy }
   let choosing = null;      // key of the card whose Remove choice is open
   let banner = '';          // last save problem, shown at the top
@@ -266,7 +268,7 @@ export function renderPage(mount, data) {
     list?.classList.add('no-anim');
     for (const id of [...categories.map(([k]) => k), 'record']) {
       open ? openSecs.add(id) : openSecs.delete(id);
-      setFold(secNode(id), open);
+      if (secNode(id)) setFold(secNode(id), open);
     }
     for (const node of list?.querySelectorAll('.area') ?? []) { rememberArea(node.dataset.key, open, false); setFold(node, open); }
     saveOpen(); saveAreas();
@@ -324,7 +326,7 @@ export function renderPage(mount, data) {
     return el('div', { class: 'area', id, 'data-area': a, 'data-key': k, 'data-collapsed': open ? '0' : '1' },
       el('div', { class: 'area-head', 'data-head': '1', onclick: () => toggleArea(k) },
         el('span', { class: 'area-name' }, label),
-        el('span', { class: 'area-count' }, el('span', { class: n < target ? 'short' : 'full' }, n + ' open'), ' · aim ' + target),
+        el('span', { class: 'area-count' }, n + ' open'),
         btn),
       el('div', { class: 'fold', 'data-fold': '1', 'data-open': open ? '1' : '0', id: id + '-body', inert: !open },
         el('div', { class: 'fold-i' }, el('div', { class: 'area-body' },
@@ -480,43 +482,74 @@ export function renderPage(mount, data) {
     const shownAreas = area === 'all' ? areas : areas.filter(([k]) => k === area);
     const toRecord = e => { e.preventDefault(); toggleSec('record', true); };
 
+    if (cat !== 'all' && !categories.some(([k]) => k === cat)) cat = 'all';
+    const areaCount = key => openList.filter(c => (key === 'all' || c.area === key) && (cat === 'all' || c.category === cat)).length;
+    const catCount = key => openList.filter(c => (key === 'all' || c.category === key) && (area === 'all' || c.area === area)).length;
+    const setArea = key => { area = key; store.set('radar.area', key); filterClosed.clear(); render(); };
+    const setCat = key => {
+      cat = key; store.set('radar.cat', key);
+      if (key !== 'all') { openSecs.add(key); saveOpen(); }   // the one category you picked is shown open
+      render();
+    };
+    const tag = (text, undo, title) => el('button', { type: 'button', class: 'tag', title, onclick: undo },
+      text, el('i', { 'aria-hidden': 'true' }, '×'));
+    const tags = [
+      area !== 'all' && tag(areaLabel(area), () => setArea('all'), 'Show all areas'),
+      cat !== 'all' && tag(catLabel(cat), () => setCat('all'), 'Show all categories'),
+    ].filter(Boolean);
+
+    const panel = el('div', { class: 'fpanel', id: 'fpanel', 'data-open': filterOpen ? '1' : '0', inert: !filterOpen },
+      el('div', { class: 'fpanel-i' }, el('div', { class: 'fcard' },
+        el('div', {},
+          el('p', { class: 'flabel' }, 'Area'),
+          el('div', { class: 'seg', role: 'group', 'aria-label': 'Area' },
+            ...[['all', 'All areas'], ...areas].map(([key, label]) => el('button', {
+              type: 'button', class: 'segbtn' + (area === key ? ' on' : ''), 'aria-pressed': String(area === key),
+              onclick: () => setArea(key) }, label, el('span', { class: 'n' }, areaCount(key)))))),
+        el('div', {},
+          el('p', { class: 'flabel' }, 'Category · pick one to show only that'),
+          el('div', { class: 'cchips', role: 'group', 'aria-label': 'Category' },
+            el('button', { type: 'button', class: 'cchip all' + (cat === 'all' ? ' on' : ''), 'aria-pressed': String(cat === 'all'),
+              onclick: () => setCat('all') }, 'All categories', el('span', { class: 'n' }, catCount('all'))),
+            ...categories.map(([key, label], i) => el('button', {
+              type: 'button', class: 'cchip' + (cat === key ? ' on' : ''), 'data-cat': key, 'aria-pressed': String(cat === key),
+              onclick: () => setCat(cat === key ? 'all' : key) },
+              el('span', { class: 'jn' }, String(i + 1).padStart(2, '0')), label, el('span', { class: 'n' }, catCount(key)))))))));
+    const fbtn = el('button', { type: 'button', class: 'fbtn', 'aria-expanded': String(filterOpen), 'aria-controls': 'fpanel',
+      onclick: () => {
+        filterOpen = !filterOpen;
+        panel.setAttribute('data-open', filterOpen ? '1' : '0');
+        panel.inert = !filterOpen;
+        fbtn.setAttribute('aria-expanded', String(filterOpen));
+      } }, 'Filter', chev(12));
+
     const root = el('div', { class: 'board' });
     root.append(el('header', { class: 'top' },
-      el('div', { class: 'brand' },
+      el('div', { class: 'topline' },
         el('p', { class: 'kicker' }, 'Physiker Stellen · private'),
+        el('div', { class: 'utility', role: 'group', 'aria-label': 'Open or close all sections' },
+          el('button', { type: 'button', class: 'ubtn', onclick: () => foldAll(true) }, 'Expand all'),
+          el('button', { type: 'button', class: 'ubtn', onclick: () => foldAll(false) }, 'Collapse all'),
+          el('button', { type: 'button', class: 'ubtn quiet signout', onclick: signOut }, 'Sign out'))),
+      el('div', { class: 'titlerow' },
         el('h1', {}, 'Open postings'),
-        el('p', { class: 'sub' }, 'Aim: ' + target + ' open postings per area in every category.')),
-      el('div', { class: 'tally' },
-        el('a', { href: '#record', class: 't applied', onclick: toRecord }, el('b', {}, applied.length), el('span', {}, 'Applied')),
-        el('a', { href: '#record', class: 't notrel', onclick: toRecord }, el('b', {}, notRelevant.length), el('span', {}, 'Not relevant')),
-        el('span', { class: 't open' }, el('b', {}, openList.length), el('span', {}, 'Open'))),
-      el('div', { class: 'controls' },
-        el('div', { class: 'chips', role: 'group', 'aria-label': 'Area' },
-          ...[['all', 'All areas'], ...areas].map(([key, label]) => el('button', {
-            type: 'button', class: 'chip' + (area === key ? ' on' : ''), 'aria-pressed': String(area === key),
-            onclick: () => { area = key; store.set('radar.area', key); filterClosed.clear(); render(); } }, label))),
-        el('div', { class: 'controls-right' },
-          el('div', { class: 'foldbar', role: 'group', 'aria-label': 'Open or close all sections' },
-            el('button', { type: 'button', class: 'foldbtn', onclick: () => foldAll(true) }, 'Expand all'),
-            el('button', { type: 'button', class: 'foldbtn', onclick: () => foldAll(false) }, 'Collapse all')),
-          el('button', { type: 'button', class: 'signout', onclick: signOut }, 'Sign out')))));
+        el('div', { class: 'tally' },
+          el('span', { class: 't open' }, el('b', {}, openList.length), el('span', {}, 'Open')),
+          el('a', { href: '#record', class: 't applied', onclick: toRecord }, el('b', {}, applied.length), el('span', {}, 'Applied')),
+          el('a', { href: '#record', class: 't notrel', onclick: toRecord }, el('b', {}, notRelevant.length), el('span', {}, 'Not relevant')))),
+      el('div', { class: 'filterrow' }, fbtn, ...tags, !tags.length && el('span', { class: 'fnote' }, 'Showing everything')),
+      panel));
 
     if (banner) root.append(el('p', { class: 'banner', role: 'alert' }, banner));
 
-    root.append(el('nav', { class: 'jump', 'aria-label': 'Categories' },
-      ...categories.map(([key, label], i) => {
-        const n = openList.filter(c => c.category === key && (area === 'all' || c.area === area)).length;
-        return el('a', { href: '#cat-' + key, 'data-cat': key, onclick: e => { e.preventDefault(); toggleSec(key, true); } },
-          el('span', { class: 'jn' }, String(i + 1).padStart(2, '0')), label, el('span', { class: 'jc' }, n));
-      })));
-
     const main = el('main', { class: 'sections' });
     categories.forEach(([key, label], i) => {
+      if (cat !== 'all' && key !== cat) return;
       const inCat = openList.filter(c => c.category === key);
       const shown = inCat.filter(c => area === 'all' || c.area === area).length;
       const counts = areas.map(([a, l]) => {
         const n = inCat.filter(c => c.area === a).length;
-        return el('span', { class: n < target ? 'short' : 'full' }, l + ' ' + n + '/' + target);
+        return el('span', {}, l + ' ' + n);
       });
       const formHere = form && form.category === key;
       const body = [
