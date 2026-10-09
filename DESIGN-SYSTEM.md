@@ -101,8 +101,8 @@ Rules that keep it intact:
 | `--amber-soft` | its tint | `#f6ead7` | `#f4e3c1` | `#3a2b14` |
 | `--slate` | Rest of Germany | `#34506a` | `#3b4551` | `#c3ccd6` |
 | `--slate-soft` | its tint | `#e3e9ef` | `#dfe3e8` | `#262c33` |
-| `--ok` | "aim met", Applied | `#2f5d3a` | `#2f5d3a` (literal) | `#8fc49a` (literal) |
-| `--quote` | employer-quote box | `#fbf6ee` (literal) | `#fbf6ee` | `#2a211c` |
+| `--ok` | Applied | `#2f5d3a` (dark `#8fc49a`) | `#2f5d3a` (literal) | `#8fc49a` (literal) |
+| `--quote` | employer-quote box | `#fbf6ee` (dark `#2a211c`) | `#fbf6ee` | `#2a211c` |
 
 The live app is **light only**; the single-file page switches with `prefers-color-scheme`, and `data-theme="light"` or `"dark"` on `<html>` forces either. Dark mode sets `color-scheme: dark`.
 
@@ -136,6 +136,8 @@ The live app is **light only**; the single-file page switches with `prefers-colo
 | `--area-line` | city colour 30 % over the paper colour | city border, hairline, toggle ring |
 | hover | inset overlay `rgba(28,21,24,.03)` live, `rgba(0,0,0,.03)` page | header hover |
 | dark hue (page) | hue 55 % over `#fff` | `--cat` in dark mode |
+
+**Dark theme, live app (since 9 October, v39).** The board sets `data-theme` on `<html>` to `auto`, `light` or `dark` from the theme button (`radar.theme`); `dark`, or `auto` under a dark system setting, swaps the token block: ground `#17120f`, paper `#211a17`, lines `#3d322b` / `#4a3e36`, ink `#f2ece3`, ink2 `#d9cfc3`, muted `#b3a699`, faint `#9a8d81`, wine `#e2a2aa` on `#3d2026`, amber `#e8bf7a` on `#3a2b14`, slate `#b9c6d4` on `#262c33`, ok `#8fc49a`, quote box `#2a211c`, text on fills `#17120f`. Category hues are mixed 55 % with white and their band is 10 % (not 8 %) so it still reads on the dark paper. The contrast audit covers it: 65 pairs, none below target. The login screen sets no theme and stays light.
 
 ### 4.2 Typography
 
@@ -301,6 +303,7 @@ Cards never carry colour except the city pill. A card opened with More animates 
 | Control | Spec |
 |---|---|
 | Search box (P) | in the filter panel: pill, 8 × 12, sans 14, paper ground with a 1 px ink-7 % ring, max 420 wide |
+| Theme button (both) | a utility button with a 14 px line icon and its state's name: half-filled circle **Auto** (follow the system), sun **Light**, moon **Dark**; a click moves to the next (Auto → Light → Dark → Auto); its `title` says what the next click does; it sits after Collapse all |
 | Utility button (both) | `.ubtn`: text only, 6 × 10, radius 999, sans 13 muted; hover 6 % ink ground. Sign out is the `quiet` variant, mono 12 faint |
 | Filter button (both) | `.fbtn`: pill, 8 × 16, sans 500 14, 7 % ink ground, chevron; `aria-expanded`, `aria-controls="fpanel"`; open: ink ground, white text, chevron turned |
 | Filter tag (both) | `.tag`: pill, wine-soft ground, wine sans 500 13, trailing × in an 18 px circle; the whole tag is the button that removes the filter |
@@ -362,10 +365,12 @@ Open and close in place (no re-render); header click or toggle; everything start
 | `radar.openAreas` | open cities as `category:city` | L |
 | `radar.area` | the area filter (`all`, `berlin`, `leipzig`, `de`) | L |
 | `radar.cat` | the category filter (`all` or a category key) | L |
+| `radar.theme` | `auto`, `light` or `dark` | L |
 | `pr.open` | open categories `{category: true}` | P |
 | `pr.openAreas` | open cities `{"category:city": true}` | P |
 | `pr.applied` | marked-applied posting numbers `{n: true}` | P |
 | `pr.area`, `pr.cat` | the area and category filters | P |
+| `pr.theme` | `auto`, `light` or `dark`; read in the page's `<head>` before first paint, so a stored choice never flashes | P |
 
 All of these are per-browser conveniences, never data, and every read and write is wrapped in `try`/`catch` (private windows, blocked storage). Server-side in L: Applied and Not relevant marks and hand-added postings (AppDeploy database).
 
@@ -450,17 +455,17 @@ AppDeploy app `physik-radar-xvy59b` (frontend plus backend). The files that carr
 
 ## 10. Verification
 
-`node design/test/run.mjs` builds a temporary harness (the live app's real `page.js` and `board.css`, stand-ins for the three server-side modules, a `data.json` made from `index.html`), serves it and the repository root, and drives Chromium at 1280 × 900 and 390 × 844 (light and dark for the page). **273 checks (173 plus `headtest.cjs` on both implementations); 272 pass.** The one failure is `foldtest.cjs` "closing from deep inside never jumps" on desktop: closing *Systems engineer* from its last city makes the page too short to keep the header pinned, so the header glides down about 190 px, and the glide's largest single-frame step (47 to 120 px across runs) exceeds the test's 40 px limit. It fails identically on the commit before the header change (checked 9 October), so it is the page-bottom case of rule 4, not the header; the city-level suite's speed-ratio check is the better measure and passes. Expectations are derived from the data (live counts, search hits, category count), so a refreshed list does not break them; where a test drives a panel it first verifies the panel holds a posting and says so if not.
+`node design/test/run.mjs` builds a temporary harness (the live app's real `page.js` and `board.css`, stand-ins for the three server-side modules, a `data.json` made from `index.html`), serves it and the repository root, and drives Chromium at 1280 × 900 and 390 × 844 (light and dark for the page). **289 checks (173 plus `headtest.cjs` on both implementations, now with the theme checks); 288 pass.** The one failure is `foldtest.cjs` "closing from deep inside never jumps" on desktop: closing *Systems engineer* from its last city makes the page too short to keep the header pinned, so the header glides down about 190 px, and the glide's largest single-frame step (47 to 120 px across runs) exceeds the test's 40 px limit. It fails identically on the commit before the header change (checked 9 October), so it is the page-bottom case of rule 4, not the header; the city-level suite's speed-ratio check is the better measure and passes. Expectations are derived from the data (live counts, search hits, category count), so a refreshed list does not break them; where a test drives a panel it first verifies the panel holds a posting and says so if not.
 
 | Suite | Target | Checks | Covers |
 |---|---|---|---|
 | `repotest.cjs` | single-file page | 48 | start shut; header and toggle open and close; low section glides under the bar; header pins under the bar; deep close never jumps; curve; header size; Expand and Collapse all; search opens all and restores; Mark applied keeps open state; reload memory; distinct category colours |
 | `citytest.cjs` | single-file page | 54 | folded cities inside an open category; city styling differs from category styling; three city colours; city open and close; same curve; pinned stack (category then city); next city takes over; city deep close; city opened low; category closed from deep in a city; both levels in Expand and Collapse all; reload memory; area chip behaviour; search |
-| `headtest.cjs` | both (`repo` and `app` arguments) | 52 + 48 | the v38 header: no aim line; title the largest text; three figures without boxes; old chips and strip gone; panel shut and `inert` on load; "Showing everything"; Filter opens the panel; 4 area options and 11 category chips; area tag and only that area's cities; one category shown and opened; both tags; chosen chip filled; second click returns to all; a tag removes only its filter; Open count unchanged by filtering; category filter survives a reload; Expand and Collapse all with a filter on; panel toggles; no horizontal scroll; no page errors (desktop and phone) |
+| `headtest.cjs` | both (`repo` and `app` arguments) | 60 + 56 | the v38 header: no aim line; title the largest text; three figures without boxes; old chips and strip gone; panel shut and `inert` on load; "Showing everything"; Filter opens the panel; 4 area options and 11 category chips; area tag and only that area's cities; one category shown and opened; both tags; chosen chip filled; second click returns to all; a tag removes only its filter; Open count unchanged by filtering; category filter survives a reload; Expand and Collapse all with a filter on; panel toggles; theme button cycles Auto, Light, Dark; dark darkens the ground and keeps the title readable; the choice survives a reload; no horizontal scroll; no page errors (desktop and phone) |
 | `foldtest.cjs` | live app view code | 35 | the category-level behaviour on the live code, in the harness |
 | `citytest.cjs` | live app view code | 36 | the city level on the live code, plus Remove and More inside a city |
 | `measure.cjs` | both | n/a | frame-by-frame motion numbers, target sizes, reduced motion (`run.mjs measure`) |
-| `tokens-report.py` | stylesheets | n/a | contrast of 188 colour pairs |
+| `tokens-report.py` | stylesheets | n/a | contrast of 250 colour pairs in four themes (live light and dark, page light and dark) |
 
 **What the live-app harness does not cover:** the server round trips (marks, added postings, sign-in, live refresh). Those have the backend release tests and manual use.
 
@@ -498,7 +503,7 @@ Stated plainly, with the cheapest fix. None of these was changed without a decis
 10. **Chromium only.** The features used (`color-mix()`, `overflow: clip`, `inert`, transitions on `grid-template-rows`, `position: sticky`) are, to my knowledge, in current Firefox, Safari and Chromium releases, but that was not tested.
 11. **No visual regression test.** The tests assert geometry, state and timing; a colour or spacing change that keeps the geometry passes them.
 12. **The live app's text link "Open posting ↗" is 20 px tall** (section 7).
-13. **The live app is light only**; the page has dark mode.
+13. *(closed 9 October)* The live app was light only; it now has the same dark theme as the page, chosen with the Auto / Light / Dark button.
 14. *(closed the same day)* The two headers had diverged for a few hours; the page now carries the same header, with the search box inside its filter panel.
 15. **One failing fold check at the page bottom** (section 10): the deep close of the last category exceeds the per-frame step limit; it predates the header change.
 
@@ -516,6 +521,7 @@ All times 8 and 9 October 2026 (AppDeploy versions in UTC).
 | 9 Oct, v34 (01:09) | City folds inside categories, colour per city, pinned stack, `overflow: clip` | "I need to distinguish the cities within one category" |
 | 9 Oct, v35 to v37 | Link check, renumbering of the list to 1..89 with a one-time move of the owner's marks, deletion of hidden rows, clean slate for marks from the earlier list | "Why do I still have them? Fix the enumerating" |
 | 9 Oct, v38 | Header redesigned: large title, plain figures between hairlines, utility text buttons, one Filter button with a folding panel (segmented area control, single-category chips, counts on every option), removable tags, aim line and `n/3` counts removed | The tiles and chips "don't look good, their borders are too stiff"; the category strip did not say what a click does; the aim "is not necessary to see all the time" |
+| 9 Oct, v39 and repository | Dark theme for the live app and a theme button on both: every colour in `board.css` became a token (`--on-fill` for text on coloured fills, `--quote`, `--ink2`, `--line-soft`, `--shade`; tints as `color-mix()` of `--ink`), a dark token set, category hues lightened 55 % toward white in dark (as on the page); the login screen stays light | "Can we please add a dark theme too? I can't find a place to click it" |
 | 9 Oct, repository | The same header ported to the single-file page: sticky bar removed, search moved into the filter panel, four plain figures, aim removed, dark-mode variants; `headtest.cjs` runs on both | "Port the new header to the GitHub page too" |
 | 8 and 9 Oct, repository | Single-file page brought level with the live app; DESIGN.md; build kit, tests and this document | Share and keep the work |
 

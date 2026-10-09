@@ -24,6 +24,8 @@ header.mast{padding-block:26px 22px;border-bottom:1px solid var(--line);display:
 .eyebrow{margin:0;font:11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--wine)}
 .utility{display:flex;align-items:center;gap:2px;margin-right:-10px}
 .ubtn{padding:6px 10px;border:0;border-radius:999px;background:transparent;font:13px var(--sans);color:var(--muted);cursor:pointer;white-space:nowrap;transition:background-color .15s ease,color .15s ease}
+.ubtn.theme{display:inline-flex;align-items:center;gap:6px}
+.ubtn.theme svg{flex:none}
 .ubtn:hover{background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink)}
 .titlerow{display:flex;align-items:flex-end;justify-content:space-between;gap:14px 40px;flex-wrap:wrap;margin-top:-6px}
 h1{margin:0;font:400 clamp(46px,7.4vw,76px)/.98 var(--serif);letter-spacing:-.012em;text-wrap:balance}

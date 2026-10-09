@@ -40,6 +40,7 @@ page = f"""{head}
 <title>Physik Radar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>try{{const t=JSON.parse(localStorage.getItem('pr.theme'));document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:'auto'}}catch(e){{document.documentElement.dataset.theme='auto'}}</script>
 <style>
 {css}
 </style>
@@ -48,7 +49,7 @@ page = f"""{head}
   <header class="mast">
     <div class="topline">
       <p class="eyebrow">Job dossier · Numa · BSc Physics, Leipzig</p>
-      <div class="utility" role="group" aria-label="Open or close all categories"><button class="ubtn" id="expand-all" type="button">Expand all</button><button class="ubtn" id="collapse-all" type="button">Collapse all</button></div>
+      <div class="utility" role="group" aria-label="Open or close all categories"><button class="ubtn" id="expand-all" type="button">Expand all</button><button class="ubtn" id="collapse-all" type="button">Collapse all</button><button class="ubtn theme" id="theme" type="button"></button></div>
     </div>
     <div class="titlerow">
       <h1>Physics roles, Berlin &amp; Leipzig</h1>

@@ -89,6 +89,25 @@ export function outcomeOf(mark) {
 }
 
 /** A chevron that turns 180° about its own centre when its parent opens. */
+// Sun, moon, or a half-filled circle for "follow the system".
+function themeIcon(kind) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16'); svg.setAttribute('width', 14); svg.setAttribute('height', 14); svg.setAttribute('aria-hidden', 'true');
+  const add = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); svg.append(n); };
+  const line = { fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' };
+  if (kind === 'light') {
+    add('circle', { cx: 8, cy: 8, r: 3, ...line });
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a); add('path', { d: `M${8 + 5 * c} ${8 + 5 * s}L${8 + 6.5 * c} ${8 + 6.5 * s}`, ...line }); }
+  } else if (kind === 'dark') {
+    add('path', { d: 'M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z', ...line, 'stroke-linejoin': 'round' });
+  } else {
+    add('circle', { cx: 8, cy: 8, r: 5.5, ...line });
+    add('path', { d: 'M8 2.5a5.5 5.5 0 0 1 0 11z', fill: 'currentColor' });
+  }
+  return svg;
+}
+
 function chev(size = 14) {
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
@@ -123,6 +142,10 @@ export function renderPage(mount, data) {
   let categories = data.categories ?? [];
   let areas = data.areas ?? [];
 
+  // Theme: 'auto' follows the system, or 'light' / 'dark' as chosen; stored per browser. The button cycles the three.
+  let theme = store.get('radar.theme', 'auto');
+  if (!['auto', 'light', 'dark'].includes(theme)) theme = 'auto';
+  document.documentElement.setAttribute('data-theme', theme);
   let area = store.get('radar.area', 'all');
   let cat = store.get('radar.cat', 'all');   // 'all' or one category key: the board then shows only that category
   let filterOpen = false;                    // the filter panel starts closed; it is only needed to change the view
@@ -472,6 +495,19 @@ export function renderPage(mount, data) {
         el('button', { type: 'button', class: 'cancel', onclick: closeForm }, 'Cancel')));
   }
 
+  const THEMES = { auto: ['Auto', 'Theme follows your system. Click for light.'], light: ['Light', 'Light theme. Click for dark.'], dark: ['Dark', 'Dark theme. Click to follow your system.'] };
+  function themeButton() {
+    const [label, title] = THEMES[theme];
+    const btn = el('button', { type: 'button', class: 'ubtn theme', title, 'aria-label': title }, themeIcon(theme), label);
+    btn.addEventListener('click', () => {
+      theme = { auto: 'light', light: 'dark', dark: 'auto' }[theme];
+      store.set('radar.theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+      btn.replaceWith(themeButton());
+    });
+    return btn;
+  }
+
   function render() {
     if (pendingData && !form && !choosing) { applyData(pendingData); pendingData = null; }
     const all = cards();
@@ -530,6 +566,7 @@ export function renderPage(mount, data) {
         el('div', { class: 'utility', role: 'group', 'aria-label': 'Open or close all sections' },
           el('button', { type: 'button', class: 'ubtn', onclick: () => foldAll(true) }, 'Expand all'),
           el('button', { type: 'button', class: 'ubtn', onclick: () => foldAll(false) }, 'Collapse all'),
+          themeButton(),
           el('button', { type: 'button', class: 'ubtn quiet signout', onclick: signOut }, 'Sign out'))),
       el('div', { class: 'titlerow' },
         el('h1', {}, 'Open postings'),

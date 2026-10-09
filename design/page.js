@@ -263,6 +263,34 @@ function render(){
 document.getElementById('q').addEventListener('input',e=>setQ(e.target.value));
 document.querySelectorAll('[data-loc]').forEach(b=>b.addEventListener('click',()=>setLoc(b.dataset.loc)));
 document.getElementById('fbtn').append(chev(12));
+// Theme: 'auto' follows the system, or 'light' / 'dark' as chosen; stored in this browser. The button cycles the three.
+// The <head> sets data-theme before first paint, so a stored choice never flashes.
+const THEMES = { auto: ['Auto', 'Theme follows your system. Click for light.'], light: ['Light', 'Light theme. Click for dark.'], dark: ['Dark', 'Dark theme. Click to follow your system.'] };
+function themeIcon(kind) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16'); svg.setAttribute('width', 14); svg.setAttribute('height', 14); svg.setAttribute('aria-hidden', 'true');
+  const add = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); svg.append(n); };
+  const line = { fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' };
+  if (kind === 'light') {
+    add('circle', { cx: 8, cy: 8, r: 3, ...line });
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a); add('path', { d: `M${8 + 5 * c} ${8 + 5 * s}L${8 + 6.5 * c} ${8 + 6.5 * s}`, ...line }); }
+  } else if (kind === 'dark') {
+    add('path', { d: 'M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z', ...line, 'stroke-linejoin': 'round' });
+  } else {
+    add('circle', { cx: 8, cy: 8, r: 5.5, ...line });
+    add('path', { d: 'M8 2.5a5.5 5.5 0 0 1 0 11z', fill: 'currentColor' });
+  }
+  return svg;
+}
+let theme = store.get('pr.theme', 'auto'); if (!THEMES[theme]) theme = 'auto';
+function showTheme() {
+  document.documentElement.dataset.theme = theme;
+  const b = document.getElementById('theme'), [label, title] = THEMES[theme];
+  b.replaceChildren(themeIcon(theme), label); b.title = title; b.setAttribute('aria-label', title);
+}
+document.getElementById('theme').addEventListener('click', () => { theme = { auto: 'light', light: 'dark', dark: 'auto' }[theme]; store.set('pr.theme', theme); showTheme(); });
+showTheme();
 document.getElementById('fbtn').addEventListener('click',()=>setPanel(!filterOpen));
 document.querySelectorAll('[data-loc]').forEach(x => { const on = x.dataset.loc === loc; x.setAttribute('aria-pressed', String(on)); x.classList.toggle('on', on); });
 document.getElementById('expand-all').addEventListener('click',()=>foldAll(true));

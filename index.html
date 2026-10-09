@@ -2,6 +2,7 @@
 <title>Physik Radar</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>try{const t=JSON.parse(localStorage.getItem('pr.theme'));document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:'auto'}catch(e){document.documentElement.dataset.theme='auto'}</script>
 <style>
 /* Layout: one column of fold-out category cards; each card holds location panels, each panel holds job cards. */
 :root{
@@ -29,6 +30,8 @@ header.mast{padding-block:26px 22px;border-bottom:1px solid var(--line);display:
 .eyebrow{margin:0;font:11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--wine)}
 .utility{display:flex;align-items:center;gap:2px;margin-right:-10px}
 .ubtn{padding:6px 10px;border:0;border-radius:999px;background:transparent;font:13px var(--sans);color:var(--muted);cursor:pointer;white-space:nowrap;transition:background-color .15s ease,color .15s ease}
+.ubtn.theme{display:inline-flex;align-items:center;gap:6px}
+.ubtn.theme svg{flex:none}
 .ubtn:hover{background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink)}
 .titlerow{display:flex;align-items:flex-end;justify-content:space-between;gap:14px 40px;flex-wrap:wrap;margin-top:-6px}
 h1{margin:0;font:400 clamp(46px,7.4vw,76px)/.98 var(--serif);letter-spacing:-.012em;text-wrap:balance}
@@ -175,7 +178,7 @@ footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--line2);font:1
   <header class="mast">
     <div class="topline">
       <p class="eyebrow">Job dossier · Numa · BSc Physics, Leipzig</p>
-      <div class="utility" role="group" aria-label="Open or close all categories"><button class="ubtn" id="expand-all" type="button">Expand all</button><button class="ubtn" id="collapse-all" type="button">Collapse all</button></div>
+      <div class="utility" role="group" aria-label="Open or close all categories"><button class="ubtn" id="expand-all" type="button">Expand all</button><button class="ubtn" id="collapse-all" type="button">Collapse all</button><button class="ubtn theme" id="theme" type="button"></button></div>
     </div>
     <div class="titlerow">
       <h1>Physics roles, Berlin &amp; Leipzig</h1>
@@ -469,6 +472,34 @@ function render(){
 document.getElementById('q').addEventListener('input',e=>setQ(e.target.value));
 document.querySelectorAll('[data-loc]').forEach(b=>b.addEventListener('click',()=>setLoc(b.dataset.loc)));
 document.getElementById('fbtn').append(chev(12));
+// Theme: 'auto' follows the system, or 'light' / 'dark' as chosen; stored in this browser. The button cycles the three.
+// The <head> sets data-theme before first paint, so a stored choice never flashes.
+const THEMES = { auto: ['Auto', 'Theme follows your system. Click for light.'], light: ['Light', 'Light theme. Click for dark.'], dark: ['Dark', 'Dark theme. Click to follow your system.'] };
+function themeIcon(kind) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16'); svg.setAttribute('width', 14); svg.setAttribute('height', 14); svg.setAttribute('aria-hidden', 'true');
+  const add = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); svg.append(n); };
+  const line = { fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' };
+  if (kind === 'light') {
+    add('circle', { cx: 8, cy: 8, r: 3, ...line });
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, c = Math.cos(a), s = Math.sin(a); add('path', { d: `M${8 + 5 * c} ${8 + 5 * s}L${8 + 6.5 * c} ${8 + 6.5 * s}`, ...line }); }
+  } else if (kind === 'dark') {
+    add('path', { d: 'M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z', ...line, 'stroke-linejoin': 'round' });
+  } else {
+    add('circle', { cx: 8, cy: 8, r: 5.5, ...line });
+    add('path', { d: 'M8 2.5a5.5 5.5 0 0 1 0 11z', fill: 'currentColor' });
+  }
+  return svg;
+}
+let theme = store.get('pr.theme', 'auto'); if (!THEMES[theme]) theme = 'auto';
+function showTheme() {
+  document.documentElement.dataset.theme = theme;
+  const b = document.getElementById('theme'), [label, title] = THEMES[theme];
+  b.replaceChildren(themeIcon(theme), label); b.title = title; b.setAttribute('aria-label', title);
+}
+document.getElementById('theme').addEventListener('click', () => { theme = { auto: 'light', light: 'dark', dark: 'auto' }[theme]; store.set('pr.theme', theme); showTheme(); });
+showTheme();
 document.getElementById('fbtn').addEventListener('click',()=>setPanel(!filterOpen));
 document.querySelectorAll('[data-loc]').forEach(x => { const on = x.dataset.loc === loc; x.setAttribute('aria-pressed', String(on)); x.classList.toggle('on', on); });
 document.getElementById('expand-all').addEventListener('click',()=>foldAll(true));

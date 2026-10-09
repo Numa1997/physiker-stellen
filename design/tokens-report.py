@@ -3,9 +3,9 @@
 
     python3 design/tokens-report.py            # prints markdown tables
     python3 design/tokens-report.py --fail     # prints only the pairs that miss their WCAG target
-    python3 design/tokens-report.py --matrix   # one row per category: title and number-chip contrast in the three themes
+    python3 design/tokens-report.py --matrix   # one row per category: title and number-chip contrast in the four themes
 
-Reads design/live-app/board.css (live app, light only) and design/page.css
+Reads design/live-app/board.css (live app, light and dark since 9 Oct 2026) and design/page.css
 (single-file page, light and dark). Nothing is typed in by hand: change a
 token in the CSS and the numbers change. WCAG 2.x relative-luminance contrast;
 targets: 4.5 for normal text, 3.0 for large text (24 px, or 18.66 px bold) and
@@ -76,9 +76,11 @@ WHITE = (255, 255, 255)
 BLACK_HOVER = None
 
 themes = {}
-# live app: light only. --card is the paper colour.
+# live app: light and dark. --card is the paper colour; category hues are --cat-base, lightened 55 % toward white in dark.
 t = resolve(tokens(block(LIVE, r':root')))
-themes['Live app, light'] = dict(tok=t, paper=t['card'], cat=cats(LIVE, 'cat'), onfill=WHITE, base=None, soft=8, line=35, area_soft=6)
+themes['Live app, light'] = dict(tok=t, paper=t['card'], cat=cats(LIVE, 'cat-base'), onfill=t.get('on-fill', WHITE), base=None, soft=8, line=35, area_soft=6)
+ld = dict(t); ld.update(resolve(tokens(block(LIVE, r':root\[data-theme="dark"\]'))))
+themes['Live app, dark'] = dict(tok=ld, paper=ld['card'], cat={k: mix(v, 55, WHITE) for k, v in cats(LIVE, 'cat-base').items()}, onfill=ld['on-fill'], base=None, soft=10, line=35, area_soft=6)
 # single-file page: light and dark
 t = resolve(tokens(block(PAGE, r':root')))
 themes['Page, light'] = dict(tok=t, paper=t['paper'], cat=cats(PAGE, 'cat-base'), onfill=t['paper'], base='light', soft=8, line=35, area_soft=6)
@@ -100,7 +102,7 @@ for name, th in themes.items():
     bg = tok['bg']
     ink2 = tok.get('ink2', ink)
     add(name, 'Body text: ink on paper', ink, paper, NORMAL)
-    add(name, 'Notes: ink2 on paper (live app uses muted)', ink2 if name != 'Live app, light' else muted, paper, NORMAL)
+    add(name, 'Notes: ink2 on paper (live app uses muted)', muted if name.startswith('Live') else ink2, paper, NORMAL)
     add(name, 'Muted on paper (counts, meta, 10-12 px mono)', muted, paper, NORMAL)
     add(name, 'Muted on page background', muted, bg, NORMAL)
     if 'faint' in tok:
@@ -129,12 +131,12 @@ for name, th in themes.items():
 if '--matrix' in sys.argv:
     # one row per category: hue, and the contrast of its title (large text, target 3.0) and number chip (small text, 4.5)
     names = list(themes)
-    live, pl, pd = (themes[n] for n in names)
-    print('| Category | Hue (light) | Title on band: live / page / dark | Number chip: live / page / dark |')
+    live, ldk, pl, pd = (themes[n] for n in names)
+    print('| Category | Hue (light) | Title on band: live / live dark / page / page dark | Number chip: live / live dark / page / page dark |')
     print('|---|---|---|---|')
     for k in live['cat']:
         cells_t, cells_c = [], []
-        for th in (live, pl, pd):
+        for th in (live, ldk, pl, pd):
             if k not in th['cat']:          # 'record' exists in the live app only
                 cells_t.append('n/a'); cells_c.append('n/a'); continue
             col = th['cat'][k]; soft = mix(col, th['soft'], th['paper'])

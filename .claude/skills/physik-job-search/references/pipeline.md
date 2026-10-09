@@ -76,7 +76,7 @@ for the current deployed copies and DESIGN-SYSTEM.md for the rules they follow. 
 run `node design/test/run.mjs app` (headtest, foldtest, citytest; one known failure at the page bottom, DESIGN-SYSTEM.md section 10),
 then copy the same two files into the manifest. Since v38 (9 Oct 2026) the live header is: large title, three plain figures (Open,
 Applied, Not relevant), one Filter button with a folding panel (area as a segmented control, one category at a time as chips),
-removable tags, no "aim" line; the aim (`meta.target_per_area`, 3) is a rule for this skill's `gaps.py`, not something the app shows.
+removable tags, an Auto / Light / Dark theme button (v39), no "aim" line; the aim (`meta.target_per_area`, 3) is a rule for this skill's `gaps.py`, not something the app shows.
 
 Cost: every deploy counts against the AppDeploy plan (Pro); Numa raised the limit once and does not want to again. One deploy per batch.
 
@@ -88,7 +88,7 @@ generated from `design/` and must not be edited by hand.
 ```
 python3 <skill>/scripts/sync_page.py backend/data/postings.json backend/data/meta.json index.html
 python3 design/build.py --check           # must say: index.html is exactly what design/ produces
-node design/test/run.mjs repo             # optional, 154 browser checks on the page (header, folds, cities); `app` runs 119 on the live view code; needs playwright
+node design/test/run.mjs repo             # optional, 162 browser checks on the page (header, theme, folds, cities); `app` runs 127 on the live view code; needs playwright
 git add index.html && git commit -m "Postings YYYY-MM-DD: +<added> / -<removed>" && git push -u origin <branch>
 ```
 
