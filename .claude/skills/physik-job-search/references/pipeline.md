@@ -8,7 +8,7 @@ Two copies of the list exist. The live app is the one Numa uses; the repository 
 
 | field | meaning |
 |---|---|
-| `n` | integer id, max(n)+1, never reused (Numa's Applied / Not relevant marks are keyed `j<n>`) |
+| `n` | integer id, max(n)+1; Numa's Applied / Not relevant marks are keyed `j<n>`. Renumbered 1..89 on 9 Oct 2026; `backend/renumber-map.mjs` moves old marks once |
 | `title` | the job in English, as he reads it |
 | `title_original` | the ad's own title (German when the ad is German) |
 | `company` | employer; for an expert network write "Meridial (Invisible Technologies' expert network)" |
@@ -22,7 +22,7 @@ Two copies of the list exist. The live app is the one Numa uses; the repository 
 | `salary` | as stated, with currency, or null |
 | `note` | what the job is; where the ad was found and when; every label the rules require |
 | `added_on` | YYYY-MM-DD |
-| `removed_on`, `removed_why` | null while open; a soft delete keeps the row forever |
+| (no removal fields) | a posting that is gone is deleted from the file; `references/sources.md` section E records why |
 
 Batch file for `scripts/add_postings.py`:
 
@@ -95,7 +95,7 @@ lines the session is given.
 
 ```
 python3 <skill>/scripts/check_links.py backend/data/postings.json              # report
-python3 <skill>/scripts/check_links.py backend/data/postings.json --remove-dead # soft-delete the DEAD ones
+python3 <skill>/scripts/check_links.py backend/data/postings.json --remove-dead # delete the DEAD rows (note them in sources.md E)
 ```
 
 TRANSIENT (network trouble, 403, 5xx) is never removed; look again next time. WORDING (page no longer mentions physics) needs a human

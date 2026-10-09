@@ -2,7 +2,7 @@
 """Checks every open posting's link and says which are dead, which are unreachable, and which no longer mention physics.
 
     check_links.py postings.json                 report only
-    check_links.py postings.json --remove-dead   also write removed_on / removed_why for the DEAD ones (never the TRANSIENT ones)
+    check_links.py postings.json --remove-dead   also delete the DEAD rows from the file (never the TRANSIENT ones)
     check_links.py --urls https://a https://b    check loose URLs
 
 A posting is DEAD when the page answers 404 or 410, or the page text carries a closed marker
@@ -87,14 +87,14 @@ def main():
         return
     data = json.load(open(a.postings))
     rows = [p for p in data if not p.get('_end')]
-    open_rows = [p for p in rows if not p.get('removed_on')]
+    open_rows = list(rows)
     counts = {}
     for p in open_rows:
         status, why = check(p['url'])
         counts[status] = counts.get(status, 0) + 1
         print(f"{status:9s} #{p['n']:<4d} {p['company'][:30]:30s} {why}  {p['url'][:90]}")
         if status == 'DEAD' and a.remove_dead:
-            p['removed_on'] = today; p['removed_why'] = f'Link dead on {today}: {why}.'
+            data.remove(p); print(f'  deleted #{p["n"]} {p["company"]} - note it in references/sources.md section E: link dead on {today}: {why}')
     print(dict(counts), file=sys.stderr)
     if a.remove_dead:
         json.dump(data, open(a.postings, 'w'), ensure_ascii=False, indent=1)

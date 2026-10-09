@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adds verified postings to postings.json (and soft-removes others), with the checks that caught real mistakes.
+"""Adds verified postings to postings.json (and deletes others), with the checks that caught real mistakes.
 
     add_postings.py postings.json batch.json            apply
     add_postings.py postings.json batch.json --dry-run  only report
@@ -18,11 +18,13 @@ batch.json:
 removal fields cannot be changed that way.
 
 Checks, each the trace of an error made on 8 Oct 2026:
-- the url must not already be in the file, in any row, including removed rows (a posting struck off is not re-added)
+- the url must not already be in the file (removed postings are deleted outright since 9 Oct 2026; the closed-leads list in
+  references/sources.md section E is the memory of what was struck off and why)
 - company + title must not already be open (one ad listed in several offices was added twice: BearingPoint #375/#376)
 - category and location_group must be known keys; the eligibility quote must be non-empty and in German-looking text
-- n is max(n)+1 over all rows; never reused (the owner's marks are keyed by n)
-- added_on is today; removed_on / removed_why null
+- n is max(n)+1 over the rows present; the list was renumbered 1..89 on 9 Oct 2026 (backend/renumber-map.mjs moves the owner's
+  marks once); a number freed by a removal is not reused while higher numbers exist
+- added_on is today
 """
 import argparse, datetime, json, re, sys
 
@@ -47,9 +49,9 @@ def main():
     for n, why in (spec.get('remove') or {}).items():
         n = int(n)
         if n not in byn: problems.append(f'remove: no posting #{n}'); continue
-        if byn[n].get('removed_on'): problems.append(f'remove: #{n} already removed'); continue
-        byn[n]['removed_on'] = today; byn[n]['removed_why'] = why
-        print(f'removed #{n} {byn[n]["company"][:30]}: {why[:80]}')
+        gone = byn.pop(n); body.remove(gone)
+        print(f'removed #{n} {gone["company"][:30]} | {gone["url"]}')
+        print(f'  -> add to references/sources.md section E: {gone["company"]} {gone["title"]} ({why})')
 
     for n, fields in (spec.get('update') or {}).items():
         n = int(n)
@@ -60,7 +62,7 @@ def main():
             print(f'update #{n} {k}: {str(byn[n].get(k))[:60]!r} -> {str(v)[:60]!r}'); byn[n][k] = v
 
     urls = {x['url'].rstrip('/') for x in body}
-    open_keys = {(norm(x['company']), norm(x['title'])) for x in body if not x.get('removed_on')}
+    open_keys = {(norm(x['company']), norm(x['title'])) for x in body}
     nx = max(byn) + 1 if byn else 1
     for p in spec.get('add') or []:
         miss = [k for k in REQUIRED if not p.get(k)]
@@ -75,7 +77,7 @@ def main():
         row = {'n': nx, 'title': p['title'], 'title_original': p['title_original'], 'company': p['company'], 'city': p['city'],
                'location_group': p['location_group'], 'category': p['category'], 'employment': p.get('employment'), 'url': p['url'],
                'eligibility_quote_de': p['eligibility_quote_de'], 'eligibility_en': p['eligibility_en'], 'salary': p.get('salary'),
-               'note': p['note'], 'added_on': today, 'removed_on': None, 'removed_why': None}
+               'note': p['note'], 'added_on': today}
         body.append(row); urls.add(p['url'].rstrip('/')); open_keys.add(key)
         print(f'added #{nx} {p["category"]:13s} {p["location_group"]:7s} {p["company"][:40]}'); nx += 1
 
