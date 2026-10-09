@@ -8,7 +8,7 @@
 A posting is DEAD when the page answers 404 or 410, or the page text carries a closed marker
 ("nicht mehr verfügbar", "no longer accepting applications", "abgelaufen", "position filled", "Stelle ist nicht mehr",
 "AD Not Found", "diese Stellenanzeige ist nicht mehr"). It is TRANSIENT when curl fails or times out: keep it and look
-again tomorrow; a soft delete on a network error would strike good postings. It is ALIVE otherwise; ALIVE postings
+again tomorrow; deleting on a network error would strike good postings. It is ALIVE otherwise; ALIVE postings
 whose page no longer contains any physics / natural-science word are flagged WORDING for a human look.
 
 Known applicant-tracking hosts are checked through their APIs where the HTML page is JavaScript-rendered or

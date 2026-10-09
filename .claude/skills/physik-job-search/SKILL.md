@@ -141,7 +141,7 @@ for Numa, not as a question for him to answer first.
 
 - `scripts/ats.py`: reads Greenhouse, Ashby, Lever, SmartRecruiters, Workday, Personio (HTML), softgarden and SuccessFactors boards.
 - `scripts/fetch.sh`: page to text with the HTTP status; the cheapest way to read an ad.
-- `scripts/check_links.py`: DEAD / TRANSIENT / ALIVE / WORDING for every open posting; `--remove-dead` writes the soft delete.
+- `scripts/check_links.py`: DEAD / TRANSIENT / ALIVE / WORDING for every posting; `--remove-dead` deletes the DEAD rows (note them in `references/sources.md` section E).
 - `scripts/add_postings.py`: applies a batch with the duplicate, key and quote checks; `--dry-run` first.
 - `scripts/gaps.py`: the table and the gaps.
 - `scripts/sync_page.py`: puts the current postings and date into the repository's `index.html` (its `DATA` and `UPDATED` lines only).
