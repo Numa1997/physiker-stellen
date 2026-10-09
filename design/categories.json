@@ -1,0 +1,45 @@
+{
+ "target_per_area": 3,
+ "categories": [
+  [
+   "content",
+   "Content creation (not school teaching)"
+  ],
+  [
+   "ai",
+   "AI training on physics & maths"
+  ],
+  [
+   "data",
+   "Data analyst"
+  ],
+  [
+   "computational",
+   "Computational scientist"
+  ],
+  [
+   "numerical",
+   "Numerical methods"
+  ],
+  [
+   "systems",
+   "Systems engineer"
+  ],
+  [
+   "physiker",
+   "“Physiker” in the job title"
+  ],
+  [
+   "pm",
+   "Project management"
+  ],
+  [
+   "production",
+   "Production supervisor"
+  ],
+  [
+   "energy",
+   "Energy sector"
+  ]
+ ]
+}

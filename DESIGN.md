@@ -1,8 +1,8 @@
 # The fold: how Physik Radar's category boards move
 
-Physik Radar is a private job board: ten categories of physics-adjacent jobs, each a card that unfolds in place to show its three cities (Berlin, Leipzig area, rest of Germany), each city again a panel that unfolds to show its postings. This note describes the way those cards open, close, scroll and look. It exists so that another chat session, or a human, can rebuild the behaviour exactly, check it, and keep it. It was designed and measured on 8 October 2026 by Numa Koudsie and Claude, after the first version "felt unstable and old" and nobody could say why until it was measured; the city level was added on 9 October 2026.
+Physik Radar is a private job board: ten categories of physics-adjacent jobs, each a card that unfolds in place to show its three cities (Berlin, Leipzig area, rest of Germany), each city again a panel that unfolds to show its postings. This note describes the way those cards open, close, scroll and look. It exists so that another chat session, or a human, can rebuild the behaviour exactly, check it, and keep it. It was designed and measured on 8 October 2026 by Numa and Claude, after the first version "felt unstable and old" and nobody could say why until it was measured; the city level was added on 9 October 2026.
 
-Two copies carry it: the live app (AppDeploy app `physik-radar-xvy59b`, files `src/claude/view/page.js` and `src/claude/styles/board.css`) and this repository's single-file `index.html`, which is generated from the live app's data and page parts.
+Two copies carry it: the live app (AppDeploy app `physik-radar-xvy59b`; a snapshot of its two design files, `page.js` and `board.css` as deployed in v34, is in `design/live-app/`) and this repository's single-file `index.html`, which `design/build.py` generates from `design/page.css`, `design/page.js` and `design/categories.json`. The whole design system (tokens, components, accessibility, how to extend it) is in [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md); this note is the motion and folding specification, with the measurements behind it.
 
 ## 1. What it is, in one paragraph
 
@@ -10,13 +10,13 @@ Two levels fold. Every category is a fold-out card; inside an open category, eac
 
 ## 2. What it fixed (measured, not guessed)
 
-The first version used the common accordion recipe: a CSS transition on `grid-template-rows` with an ease-out curve, opacity fades on a delay, and no thought given to the scroll position. Frame-by-frame sampling in a headless browser (Playwright, one sample per `requestAnimationFrame`) found four defects:
+The first version used the common accordion recipe: a CSS transition on `grid-template-rows` with an ease-out curve, opacity fades on a delay, and no thought given to the scroll position. Frame-by-frame sampling in a headless browser (Playwright, one sample per `requestAnimationFrame`) found these defects. The "before" numbers were taken from that first version (AppDeploy v30, 8 October 2026, 20:30 UTC) and cannot be reproduced from the code now in the repository; the "after" numbers can: `node design/test/run.mjs measure`. Times are milliseconds after the click; the transition itself starts a frame or two later.
 
 | Defect | Measured before | Measured after |
 |---|---|---|
 | Opening a section whose header sits low on the page | 68 px of a 2 039 px body visible; it unfolded below the screen edge | Header lands 12 px from the top (or just under the top bar), 800 px of body on screen |
-| Motion curve `cubic-bezier(.2,.8,.2,1)` over 500 ms | 27 % of the height in the first frame, 50 % by 30 ms, then a 450 ms tail (the jQuery `slideToggle` feel) | 0.6 % in the first frame, settled at 320 ms |
-| Closing a section from deep inside it (header pinned) | `scrollY` went 902 → 1 481 → 601 during the close; the pinned header flew 729 px off-screen; the browser's scroll anchoring fought the shrinking section | Header stays pinned, or glides down on the fold's own curve when the page becomes too short to pin it; peak speed equals the curve's own peak (about 2.5 × the mean), never a jump |
+| Motion curve `cubic-bezier(.2,.8,.2,1)` over 500 ms | 13 % of the height 12 ms after the click, 27 % after 29 ms, 51 % after 62 ms, then a long tail: settled at 495 ms | `cubic-bezier(.4,0,.2,1)` over 320 ms: 0.8 % after 31 ms, 2.8 % after 48 ms, 15 % after 81 ms, 40 % after 115 ms; settled at 331 ms (single-file page 315 ms) |
+| Closing a section from deep inside it (header pinned) | `scrollY` went 902 → 1 481 → 601 during the close; the pinned header flew 729 px off-screen (the cause was not isolated: the page was shortening under a `position: sticky` header while the browser re-clamped the scroll) | Header stays pinned, or glides down on the fold's own curve when the page becomes too short to pin it. Measured over 30 ms windows its peak speed is 2.3–2.5 px/ms for a 190–230 px glide, 2.6–2.9 × the mean speed, against the curve's own 2.74 × (see section 4); the largest single-frame step was 27 px |
 | Mismatched timings | Height 500 ms, opacity 350 ms + 50 ms delay, shadow 400 ms, border 250 ms, chevron 450 ms with a 180° spin plus a vertical slide | One curve, one clock, for height, slide, fade, chevron, shadow, border and scroll |
 | Phone header | Shrank by about 30 px on open, shifting the content | Same height open and closed (measured 78 px desktop, 111 px phone) |
 
@@ -28,12 +28,12 @@ A fifth, visual problem came after: category titles and job titles were both dar
 
 2. **One curve, one clock.** `cubic-bezier(0.4, 0, 0.2, 1)`; 320 ms to open, 240 ms to close. Height, the 8 px slide, the fade, the chevron's 180° turn, the border and shadow, and the window scroll all use these two numbers and this curve. The JavaScript owns the numbers and writes them into CSS custom properties (`--fold-open`, `--fold-close`, `--fold-ease`), so there is a single source of truth.
 
-3. **The height is real.** The body is a CSS grid whose single row goes from `0fr` to `1fr`; the inner wrapper has `overflow: hidden; min-height: 0`. This animates the true content height without measuring it, and a click in the middle of an animation reverses it smoothly from wherever it is (CSS transitions handle the interruption). The closed body carries `inert`, so nothing hidden can take focus.
+3. **The height is real.** The body is a CSS grid whose single row goes from `0fr` to `1fr`; the inner wrapper has `overflow: clip; min-height: 0` (`clip`, not `hidden`, for the reason given under rule 8). This animates the true content height without measuring it, and a click in the middle of an animation reverses it smoothly from wherever it is (CSS transitions handle the interruption). The closed body carries `inert`, so nothing hidden can take focus.
 
 4. **The scroll is part of the animation.** Two cases:
-   - *Opening low.* If the header sits below 40 % of the window height (or above the top edge), the window glides so that the header lands 12 px below the top (below the sticky top bar where there is one). The glide runs on the fold's curve and clock, frame by frame, with `scrollTo({ behavior: 'instant' })` each frame.
-   - *Closing deep.* If the section's top is above the window (header pinned), first scroll instantly so the section's top sits exactly where the pinned header already is: nothing visible moves. Then, if the page will end up too short to keep the header there, glide down to the final position, again on the fold's curve. The close duration stretches with that distance, `min(420, max(240, 0.45 px⁻¹ · distance))` ms, and the same stretched duration is written to the section's `--fold-close`, so the fold and the glide still share one clock.
-   - `overflow-anchor: none` on every fold body, so the browser's scroll anchoring never picks a node inside a changing section.
+   - *Opening low.* If the header sits below max(pin line + 48 px, 40 % of the window height), or above its pin line, the window glides so that the header lands 12 px below its pin line (a category) or 8 px below it (a city). The glide runs on the fold's curve and clock, frame by frame, with `scrollTo({ behavior: 'instant' })` each frame.
+   - *Closing deep.* If the section's top is above the window (header pinned), first scroll instantly so the section's top sits exactly where the pinned header already is: nothing visible moves. Then, if the page will end up too short to keep the header there, glide down to the final position, again on the fold's curve. The close duration stretches with that distance, `min(420, max(240, 0.45 × distance in px))` ms, and the same stretched duration is written to the section's `--fold-close`, so the fold and the glide still share one clock.
+   - `overflow-anchor: none` on every fold body, as a precaution: scroll anchoring is the one browser behaviour that can move the scroll position by itself, so it is switched off where the content is animating. (Whether it caused the original jump was not isolated.)
    - A wheel or touch cancels a running glide; the person always wins.
 
 5. **Why the glide never gets clamped (the inequality).** Let `D₀` be the document height when the motion starts, `V` the window height, `H` the body's full height, `S₀` the current scroll and `p(t) ∈ [0,1]` the eased progress. The browser allows at most `maxScroll(t) = D₀ ± H·p(t) − V`. The glide requests `S(t) = S₀ + (S₁ − S₀)·p(t)` with the target chosen as `S₁ = min(desired, D₀ ± H − V)`. Because `S₀ ≤ D₀ − V` and `p ≤ 1`, `maxScroll(t) − S(t) = (D₀ − V − S₀)·(1 − p) ≥ 0` for closing, and the same bound holds for opening. So the requested position is reachable at every frame; the browser never clamps, and the motion stays on the curve. (Picture: two coordinates, the fold height and the scroll, driven by one parameter along one path; the clamp is a hard wall; the path is chosen so it never touches the wall.) The full body height `H` of a closed section is readable before it opens: the grid row is 0 px tall, but its child keeps its natural `offsetHeight`.
@@ -52,7 +52,7 @@ Also: `aria-expanded` and `aria-controls` on the button, `aria-label` "Expand �
 
 | Name | Value | Where |
 |---|---|---|
-| Curve | `cubic-bezier(0.4, 0, 0.2, 1)` | JS `FOLD.curve`, CSS `--fold-ease` |
+| Curve | `cubic-bezier(0.4, 0, 0.2, 1)`. Computed numerically: its speed peaks at 30 % of the duration, at 2.74 × the mean speed; it has covered 0.02 % of the distance after 1 % of the duration, 2.6 % after 10 %, 78 % after 50 % (the old curve `cubic-bezier(.2,.8,.2,1)` had covered 9.7 % after 2.4 % of its duration, which is why it looked like a snap) | JS `FOLD.curve`, CSS `--fold-ease` |
 | Open | 320 ms | `FOLD.open`, `--fold-open` |
 | Close | 240 ms, stretched to ≤ 420 ms with glide distance × 0.45 ms/px | `FOLD.close`, `--fold-close` (per section when stretched) |
 | Body slide | 8 px down, fades from 0 | `.fold[data-open="0"] > .fold-i > *` |
@@ -167,7 +167,7 @@ Serve the page locally, drive it with Playwright at 1280 × 900 and 390 × 844 (
 - **Curve:** at 18–20 ms the fold is below 12 % of its full height; it settles under 380 ms; the height never decreases while opening.
 - **Header size:** the header's height is identical open and closed.
 - **Opening low:** from the top of the page, open a section whose header sits below 40 % of the window; afterwards its top is 12 px below the top edge (or below the bar) and more than 300 px of its body is visible.
-- **Closing deep:** scroll to the last area block of an open section (header pinned); close it; sample the header's top every frame. Its speed never exceeds about 3 × (travel ÷ settle time), which is the curve's own peak; a clamp shows as 10 × or more.
+- **Closing deep:** put the last city of an open category under the pinned header; close the category; sample the header's top every frame. Its speed over 30 ms windows never exceeds 3.2 × (travel ÷ settle time); the curve's own peak is 2.74 ×, and a single frame is too noisy to judge (scroll and sampler can share a frame or sit one apart). The first, clamped version moved 116 px in one frame where the working one moves at most 27.
 - **All at once:** Expand all opens every section; Collapse all closes every section.
 - Open sections survive a page re-render (marking a card, adding a posting) and a reload.
 - The ten `h2` colours are distinct and none equals a job title's colour.
@@ -177,12 +177,12 @@ Serve the page locally, drive it with Playwright at 1280 × 900 and 390 × 844 (
 - **Both levels:** Expand all / Collapse all reach all 30 cities; one open category and one open city survive a reload; the Berlin chip shows Berlin open by itself, it can be closed there, and "All" brings back the remembered state; on the repo page a search opens every category and city and clearing it restores them.
 - No page errors in the console.
 
-The scripts used were `foldtest.cjs` (live app, 35 checks), `repotest.cjs` (this page, 48 checks) and, for the city level on 9 October 2026, `citytest.cjs` (live app 36 checks; this page 54 checks in light, phone and dark). All passed before deployment and before the commits.
+All of this is automated in `design/test/` and runs with one command, `node design/test/run.mjs` (needs `playwright` and a Chromium): `repotest.cjs` and `citytest.cjs` against `index.html` (48 + 54 checks, in light, phone and dark), `foldtest.cjs` and `citytest.cjs` against the live app's view code in a stand-in harness (35 + 36 checks). 173 checks pass; three consecutive runs on 9 October 2026 gave the same result. Expectations are derived from the data, so a refreshed list does not break them; where a test drives a panel it first checks that the panel holds a posting and says so if not.
 
 ## 8. Things deliberately not done
 
-- No `<details>`/`::details-content` animation: `interpolate-size`/`height: auto` transitions are not yet in every browser, and the grid-row trick works everywhere.
+- No `<details>` or `interpolate-size` animation: they depend on browser support that was not verified here; the grid-row technique needs none.
 - No per-card "rise in" stagger on open: it adds a second clock and the user cannot tell what it is telling them.
-- No smooth-scroll by the browser (`scroll-behavior: smooth` / `scrollIntoView`): the browser's smooth scroll is a separate animation with its own curve and gets clamped at the moment it is requested, which was the cause of the half-way stops.
+- No smooth-scroll by the browser (`scroll-behavior: smooth` / `scrollIntoView`): the browser's smooth scroll is a separate animation with its own curve and gets clamped at the moment it is requested, which was observed: the first version's `scrollTo({ behavior: 'smooth' })` stopped 138 px short of its target (header at 150 px instead of 12 px) because the section had not grown yet.
 - No colour on job cards beyond the area pill: colour is the category's and the city's signature.
 - No per-city "+ Add posting": the button stays one per category, so the form and its area choice live in one place.

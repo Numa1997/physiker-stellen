@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="src/claude/styles/board.css"></head><body><div id="app"></div>
+<script type="module">
+// Test page for the live app's view code (design/live-app/page.js): the real page.js and board.css,
+// real data (data.json, made from index.html by run.mjs), and stand-ins for the three server-side modules.
+import { renderPage } from './src/claude/view/page.js';
+const d = await (await fetch('data.json')).json();
+window.__data = d;
+window.__errors = [];
+addEventListener('error', e => window.__errors.push(String(e.message)));
+renderPage(document.getElementById('app'), { ...d, added: [], marks: new Map() });
+window.__ready = true;
+</script></body></html>
