@@ -62,8 +62,9 @@ Rules that keep it intact:
 4. **One motion.** One curve and one clock for the fold, the chevron, the slide, the fade and the window's scroll position. The page never snaps, never jumps, never leaves you looking at an empty edge.
 5. **Nothing moves that you did not ask to move.** The only automatic motion is the scroll moving *with* a fold you opened or closed, and a wheel or touch cancels it at once.
 6. **Quiet by default, remembered when changed.** Everything starts folded. What you open stays open across reloads and across re-renders (marking a card, searching, filtering).
-7. **Numbers before detail.** Every header shows its counts against the aim (`3 open · aim 3`) before you open it; shortfalls are coloured.
+7. **Numbers before detail.** Every header shows its counts before you open it (`8 open · Berlin 3 · Leipzig area 0 · Rest of Germany 2`). The aim of three per city is a working rule for the list's maintainer, not something the reader needs on every header: the live app stopped showing it on 9 October (v38); the single-file page still shows `n/3` and colours shortfalls.
 8. **The same grammar at every level.** A level is a header plus a fold. The level below is the same thing, smaller and plainer, so the eye learns one pattern.
+9. **Filters are tools, not furniture.** You filter a few times a day and read the list the rest of the time, so the filters live behind one button and the page's top is the title and three figures. Whatever is switched on is always visible as a tag next to the button, so the board never silently shows less than everything.
 9. **The employer's own words are the evidence.** Each card quotes the posting's degree requirement verbatim, in German, in a box of its own.
 
 **Deliberately not here:** icon fonts, animation libraries, UI frameworks, images, gradients, drop-shadow decoration. The live app's whole view layer is about 570 lines of JavaScript and 220 lines of CSS with no runtime dependency; the single-file page is one HTML file.
@@ -162,7 +163,8 @@ Roles and sizes, as declared in the stylesheets (px; weight / line-height where 
 | Employer quote | mono 11.5 / 1.5 | mono 11 / 1.5 |
 | Note | sans 13 (three lines, then clipped, until More is pressed) | sans 13 / 1.5 |
 | Button, chip | sans 13 (chips), mono 11 to 12 (small buttons) | sans 12.5 (chips), mono 11 (card buttons) |
-| Big numerals (tally, figures) | serif 400 30 | serif 400 34 |
+| Page title | serif 400 clamp(46, 7.4vw, 76) / .98, tracking −.012em | serif, masthead size |
+| Big numerals (tally, figures) | serif 400 44 (36 on phone) | serif 400 34 |
 | Smallest text | mono 500 9.5 (details labels) | mono 10 (tags, figure labels) |
 
 Body is 15 px sans, line-height 1.5 (live) or the browser default (page, 14 px reset in the document head). See section 12 for the small-text caveat and the font-weight gap.
@@ -205,11 +207,11 @@ Tokens (JavaScript owns them; CSS variables follow):
 | | Live app | Single-file page |
 |---|---|---|
 | Column | `.board`, max 1320, padding 0 20 80 (0 16 60 on phone) | `.wrap`, max 1180, padding-inline 16 (28 from 760) |
-| Top | page header with title, tally, chips; no sticky bar | sticky top bar (search, chips, fold bar), height measured into `--bar-h` |
+| Top | page header: kicker and quiet utility buttons, the title with three plain figures beside it, a Filter button with tags, a folding filter panel; no sticky bar | sticky top bar (search, chips, fold bar), height measured into `--bar-h` |
 | Card grid | `repeat(auto-fill, minmax(290px, 1fr))`, gap 12 | 1 column, 2 from 760, 3 from 1100; gap 10 |
 | Breakpoint | 720 (max-width) | 760 (min-width) and 1100 (min-width) |
 
-Phone adaptations: header padding 14, title one step smaller, round toggles 34 px, forms one column, record list one column.
+Phone adaptations: header padding 14, title at the small end of its clamp, figures 36 px, round toggles 34 px, forms one column, record list one column.
 
 ## 5. Components
 
@@ -217,7 +219,13 @@ Each entry gives the anatomy, the states and the hooks. "L" is the live app, "P"
 
 ### 5.1 Page frame
 
-- **L:** `header.top`: kicker (mono caps, wine) over the title; the **tally** (three tiles: Applied, Not relevant, Open: serif numeral over a mono caps label; the first two link to the record); a controls row with the **area chips** (All areas, Berlin, Leipzig area, Rest of Germany; one on at a time, stored), the **fold bar** (Expand all | Collapse all) and Sign out. Below it the **jump bar**: one link per category with its two-digit number, its name, its open count and a dot in its hue; a click opens that category and glides to it.
+- **L (since v38, 9 October):** `header.top` in four rows.
+  1. **Top line:** the kicker (mono caps, wine) on the left; on the right the **utility group**, three quiet text buttons with no border (Expand all, Collapse all, and Sign out in smaller mono).
+  2. **Title row:** `h1` "Open postings", the largest text on the page (46 to 76 px, about 2.5 × a category title), and beside it the **tally**: three plain figures, Open, Applied, Not relevant, a 44 px serif numeral over a mono caps label, separated by 1 px hairlines, no box, no ground. Applied and Not relevant are links to the record; Open is text.
+  3. **Filter row:** the **Filter button** (soft pill, 7 % ink ground; filled ink with a turned chevron while the panel is open) and, after it, one **tag** per active filter (wine-soft pill with a × in a circle: the area's name, the category's name; clicking a tag removes that filter alone). With no filter on, the row says "Showing everything" in faint text.
+  4. **Filter panel** (`#fpanel`): a fold in the same grammar as the cards (grid rows 0fr → 1fr plus a fade, the fold's curve and clock; `inert` while shut; starts shut on every load). Inside, a soft card (3.5 % ink ground, radius 16) with two labelled groups: **Area**, a segmented control (one pill track, 6 % ink; the chosen option is a white pill with a 1 px shadow) with a count on every option; **Category**, "pick one to show only that", one chip per category (white, 1 px shadow, dot in the hue, two-digit number, name, count) plus "All categories"; the chosen chip fills with its hue. Picking a category shows only that category (opened) and "Your record"; picking it again returns to all. The counts on every option are computed under the other filter, so they say what you will get.
+
+  The earlier header (three bordered tiles, a row of chips, a two-segment fold bar and a jump bar of ten category links) was replaced because the tiles and chips read as stiff boxes and the jump bar did not say what a click would do. The jump bar's one function, going to a category, is now the category chip in the panel.
 - **P:** a **sticky top bar** (search box, area chips, fold bar) with 94 % ground colour and a blur, then the masthead (eyebrow, title, a lede that states the rule and the aim, four figures: live postings, Berlin, Leipzig area, marked applied).
 
 ### 5.2 Category fold
@@ -235,7 +243,7 @@ Each entry gives the anatomy, the states and the hooks. "L" is the live app, "P"
 | Header | the whole row is the click target; band = `--cat-soft`; padding 16 × 20; **never changes size** (measured 78 px on a laptop, 111 px on a phone for L; 86 / 90 for P) |
 | Number chip | `02`: mono 500 11 px, hue fill, white (L) or paper (P) text, radius 4 |
 | Title | serif, hue colour |
-| Counts line | `8 open` in ink 500, then one `Name n/aim` per city: wine (L) or amber (P) when below the aim, green when met. Numbers carry the meaning; colour only reinforces it |
+| Counts line | `8 open` in ink 500, then one count per city. L (v38): `Berlin 3 · Leipzig area 0 · Rest of Germany 2`, plain mono. P: `Name n/aim`, amber when below the aim, green when met; numbers carry the meaning, colour only reinforces it |
 | Toggle | 36 px circle (34 on phone), ring `--cat-line`, chevron in the hue; **open:** filled with the hue, chevron white and turned 180° |
 | Body | a fold (5.9): in L a tools row with "+ Add posting" (right-aligned) then the three city folds; in P the three city folds |
 
@@ -258,7 +266,7 @@ The same fold, one level down, and visibly lesser.
 | Panel | tint `--area-tint`, 1 px `--area-line` border, 4 px city-colour left edge, radius 8 |
 | Header | padding 8 10 8 14, flex; label, counts, toggle at the far right |
 | Label | mono 600 12.5 px, capitals, spacing .12em, in the city colour (`BERLIN`, `LEIPZIG AREA`, `REST OF GERMANY`) |
-| Counts | mono 12: `3 open · aim 3`; "n open" coloured by short or met |
+| Counts | mono 12: L `3 open`; P `3 open · aim 3` with "n open" coloured by short or met |
 | Toggle | 30 px circle; ring `--area-line`; open: filled with the city colour |
 | Body | padding 10 12 12; the card grid, or an empty-state box |
 
@@ -292,8 +300,13 @@ Cards never carry colour except the city pill. A card opened with More animates 
 
 | Control | Spec |
 |---|---|
-| Chip | pill (radius 999); 5 × 12; sans 12.5 to 13; selected: ink ground (L) or wine ground (P), light text; `aria-pressed` |
-| Fold bar | two-segment pill, `Expand all` and `Collapse all`; sans 12.5 to 13, muted text; hover wine on wine-soft |
+| Chip (P) | pill (radius 999); 5 × 12; sans 12.5; selected: wine ground, light text; `aria-pressed` |
+| Fold bar (P) | two-segment pill, `Expand all` and `Collapse all`; sans 12.5, muted text; hover wine on wine-soft |
+| Utility button (L) | `.ubtn`: text only, 6 × 10, radius 999, sans 13 muted; hover 6 % ink ground. Sign out is the `quiet` variant, mono 12 faint |
+| Filter button (L) | `.fbtn`: pill, 8 × 16, sans 500 14, 7 % ink ground, chevron; `aria-expanded`, `aria-controls="fpanel"`; open: ink ground, white text, chevron turned |
+| Filter tag (L) | `.tag`: pill, wine-soft ground, wine sans 500 13, trailing × in an 18 px circle; the whole tag is the button that removes the filter |
+| Segmented control (L) | `.seg` track: 6 % ink, radius 999, 3 px padding; `.segbtn` 7 × 14 sans 14 muted; `.on`: white pill, ink 500, 1 px shadow; `aria-pressed`; each option carries its count in mono 11 |
+| Category chip (L) | `.cchip`: white pill, 1 px shadow ring, 6 × 13, sans 13.5; hue dot, mono number, name, count; hover: ring in `--cat-line`; `.on`: filled with the hue, white text; `aria-pressed` |
 | Primary button | solid wine, white text: Save, Not relevant |
 | Positive button | solid green: Applied |
 | Secondary button | 1 px outline (`--line-strong`), muted text: Cancel, Remove, More, Sign out |
@@ -304,6 +317,7 @@ Cards never carry colour except the city pill. A card opened with More animates 
 
 - **Remove flow.** *Remove* opens a small box in the card: "Remove because…" with **Applied**, **Not relevant**, **Cancel**; cards added by hand also get "Added by mistake: delete without counting". The posting leaves the list and enters "Your record", saved on the server; **Undo** brings it back.
 - **Add posting form.** Opens inside the category's body, in place of the "+ Add posting" row: link, job title as advertised, company (optional), city, area (radio), inline error line, Add posting / Cancel. A wine outline marks it as a form the person is in.
+- **Filter panel.** See 5.1; the only fold on the page that is not a category or a city. It is never remembered open.
 - **Your record.** A fold in the same grammar (grey hue `#4a4440`), two columns (Applied, Not relevant), each a list of date, linked title and meta, with Undo.
 - **Banner.** A wine-tinted bar with a 3 px wine edge for a save problem (`role="alert"`).
 - **Login and no-access screens** (`gate.css`, `auth/*`) are not part of the fold design and are not documented here.
@@ -347,7 +361,8 @@ Open and close in place (no re-render); header click or toggle; everything start
 |---|---|---|
 | `radar.open` | open category ids, including `record` | L |
 | `radar.openAreas` | open cities as `category:city` | L |
-| `radar.area` | the area chip (`all`, `berlin`, `leipzig`, `de`) | L |
+| `radar.area` | the area filter (`all`, `berlin`, `leipzig`, `de`) | L |
+| `radar.cat` | the category filter (`all` or a category key) | L |
 | `pr.open` | open categories `{category: true}` | P |
 | `pr.openAreas` | open cities `{"category:city": true}` | P |
 | `pr.applied` | marked-applied posting numbers `{n: true}` | P |
@@ -356,9 +371,11 @@ All of these are per-browser conveniences, never data, and every read and write 
 
 ### 6.3 Filters and search
 
-- **Area chip** (both): narrows each open category to that city. While a chip other than All is on, the cities shown **open by themselves**; closing one there is remembered only in memory and forgotten when you change the chip. Choosing **All** restores what you had opened.
+- **Area** (both; a segmented control in the live app's filter panel, chips in the page's bar): narrows each open category to that city. While an area other than All is on, the cities shown **open by themselves**; closing one there is remembered only in memory and forgotten when you change the area. Choosing **All** restores what you had opened.
+- **Category** (L only): shows one category (opened, and remembered as open) plus "Your record". The Open figure in the header is the whole list, not the filtered view; the counts on the filter options are the filtered view. Choosing the same category again, "All categories", or the category's tag returns to everything. A category that no longer exists in the data falls back to All.
+- **Tags** (L only): every active filter is a tag next to the Filter button; a tag removes exactly its own filter; the panel does not have to be open to see or clear a filter.
 - **Search (P only):** filters cards by title, original title, company, city and skills; while text is in the box **every category and city opens** and the counts read `n of m match`; clearing it restores the remembered state.
-- Neither changes what is stored.
+- Search changes nothing stored; the area and category filters are stored (6.2) so a reload shows the same view.
 
 ### 6.4 Keyboard and focus
 
@@ -380,11 +397,11 @@ Every miss is one grey token. The fix is one line each and was computed, not gue
 
 **Everything else measured to pass:** all ten category titles and number chips in light and dark (matrix in 4.1); city labels and toggles; body, links, pills, quote text.
 
-**Target sizes** (WCAG 2.2 AA: at least 24 × 24 px; measured in the browser): round toggles 36 (30 for cities); chips 28 to 32 tall; fold-bar buttons 26 to 30 tall; More, Remove, card buttons 24 tall; sign out 26; + Add posting 37. One miss: the live app's text link "Open posting ↗" is 20 px tall; the card title is a link to the same place and is larger, so the function has a larger equivalent target.
+**Target sizes** (WCAG 2.2 AA: at least 24 × 24 px; measured in the browser): round toggles 36 (30 for cities); page chips 28 to 32 tall and fold-bar buttons 26 to 30 tall; live filter button 36, tags 30, segmented options 33, category chips 30, utility buttons 30; More, Remove, card buttons 24 tall; sign out 26; + Add posting 37. One miss: the live app's text link "Open posting ↗" is 20 px tall; the card title is a link to the same place and is larger, so the function has a larger equivalent target.
 
 **Reduced motion:** with `prefers-reduced-motion: reduce` the fold and chevron transitions compute to 1e-5 s and the fold is open and measurable at once (both implementations).
 
-**Semantics:** `aria-expanded`, `aria-controls` and a changing `aria-label` on every toggle; shut content is `inert`; `role="alert"` on the live app's banner and form errors; `role="group"` with a label on the live app's chip row and on both fold bars (the page's chips have `aria-pressed` but no group wrapper); open state is shown by chevron direction and `aria-expanded`, never by colour alone; the "short of aim" state is shown by the numbers (`2/3`), with colour as reinforcement.
+**Semantics:** `aria-expanded`, `aria-controls` and a changing `aria-label` on every toggle; shut content is `inert`; `role="alert"` on the live app's banner and form errors; `role="group"` with a label on the live app's utility group, area control and category chips, and on the page's fold bar (the page's chips have `aria-pressed` but no group wrapper); the live filter panel is `inert` while shut and its button carries `aria-expanded` and `aria-controls`; open state is shown by chevron direction and `aria-expanded`, never by colour alone; the "short of aim" state is shown by the numbers (`2/3`), with colour as reinforcement.
 
 **Not covered:** screen-reader testing with real assistive technology; Firefox and Safari; zoom to 200 % and text-only zoom; high-contrast mode; touch testing on a real device.
 
@@ -395,7 +412,7 @@ Wording conventions the interface depends on:
 - **Titles in English** (as the person reads them), with the **original title** in mono beneath when it differs.
 - **The quote is the employer's own German wording, verbatim**, in `„ “` marks. It is evidence, not paraphrase. The English line says what it means for a bachelor in physics.
 - **Names:** the three areas are called **Berlin**, **Leipzig area**, **Rest of Germany**. In conversation they are "cities"; in the code they are `area` or `location_group`, with keys `berlin`, `leipzig`, `de`.
-- **Counts read** `n open · aim 3` in a city header and `Name n/3` in a category header.
+- **Counts read** `n open` in a city header and `Name n` in a category header in the live app; `n open · aim 3` and `Name n/3` on the page. The aim is not shown to the reader in the live app (principle 7).
 - **Dates** in en-GB short form (`8 Oct 2026`); the list date as `YYYY-MM-DD`.
 - **Units are metric**; money is written with its currency.
 - **Remote and non-local postings are labelled in the city text** and the note says where they were placed and why ("Remote (listed for the USA; application form accepts residents of any country)").
@@ -433,12 +450,13 @@ AppDeploy app `physik-radar-xvy59b` (frontend plus backend). The files that carr
 
 ## 10. Verification
 
-`node design/test/run.mjs` builds a temporary harness (the live app's real `page.js` and `board.css`, stand-ins for the three server-side modules, a `data.json` made from `index.html`), serves it and the repository root, and drives Chromium at 1280 × 900 and 390 × 844 (light and dark for the page). **173 checks, three consecutive runs identical on 9 October 2026.** Expectations are derived from the data (live counts, search hits, category count), so a refreshed list does not break them; where a test drives a panel it first verifies the panel holds a posting and says so if not.
+`node design/test/run.mjs` builds a temporary harness (the live app's real `page.js` and `board.css`, stand-ins for the three server-side modules, a `data.json` made from `index.html`), serves it and the repository root, and drives Chromium at 1280 × 900 and 390 × 844 (light and dark for the page). **221 checks (173 plus `headtest.cjs`); 220 pass.** The one failure is `foldtest.cjs` "closing from deep inside never jumps" on desktop: closing *Systems engineer* from its last city makes the page too short to keep the header pinned, so the header glides down about 190 px, and the glide's largest single-frame step (47 to 120 px across runs) exceeds the test's 40 px limit. It fails identically on the commit before the header change (checked 9 October), so it is the page-bottom case of rule 4, not the header; the city-level suite's speed-ratio check is the better measure and passes. Expectations are derived from the data (live counts, search hits, category count), so a refreshed list does not break them; where a test drives a panel it first verifies the panel holds a posting and says so if not.
 
 | Suite | Target | Checks | Covers |
 |---|---|---|---|
 | `repotest.cjs` | single-file page | 48 | start shut; header and toggle open and close; low section glides under the bar; header pins under the bar; deep close never jumps; curve; header size; Expand and Collapse all; search opens all and restores; Mark applied keeps open state; reload memory; distinct category colours |
 | `citytest.cjs` | single-file page | 54 | folded cities inside an open category; city styling differs from category styling; three city colours; city open and close; same curve; pinned stack (category then city); next city takes over; city deep close; city opened low; category closed from deep in a city; both levels in Expand and Collapse all; reload memory; area chip behaviour; search |
+| `headtest.cjs` | live app view code | 48 | the v38 header: no aim line; title the largest text; three figures without boxes; old chips and strip gone; panel shut and `inert` on load; "Showing everything"; Filter opens the panel; 4 area options and 11 category chips; area tag and only that area's cities; one category shown and opened; both tags; chosen chip filled; second click returns to all; a tag removes only its filter; Open count unchanged by filtering; category filter survives a reload; Expand and Collapse all with a filter on; panel toggles; no horizontal scroll; no page errors (desktop and phone) |
 | `foldtest.cjs` | live app view code | 35 | the category-level behaviour on the live code, in the harness |
 | `citytest.cjs` | live app view code | 36 | the city level on the live code, plus Remove and More inside a city |
 | `measure.cjs` | both | n/a | frame-by-frame motion numbers, target sizes, reduced motion (`run.mjs measure`) |
@@ -473,7 +491,7 @@ Stated plainly, with the cheapest fix. None of these was changed without a decis
 3. **Font weight 600 in mono is requested but not loaded** (`.area-name`; the font link loads Plex Mono 400 and 500). Browsers substitute 500 or synthesise bold. Sans 600 is loaded but unused. Fix: load mono 600, or request 500.
 4. **Two city colours equal two category hues.** Berlin's wine (`#7a1f2b`) is exactly the Content hue; in the live app Rest of Germany's slate (`#34506a`) is exactly the Data analyst hue. The levels stay apart by header style (serif title on a band against small mono capitals), but a reader who learns colour-means-category will meet a city in a category colour. Fix: give cities their own three colours.
 5. **Header rows are not focus stops.** The toggle in the header is, so keyboard users lose nothing; some screen-reader users may expect the heading itself to act. A `button` wrapping the title would unify them.
-6. **Inconsistent focus styles** in the live app: toggles, More and fold buttons have a wine outline; chips, add, remove, sign out and the form buttons use the browser default.
+6. **Inconsistent focus styles** in the live app: toggles, More, the utility buttons, Filter, tags, segmented options and category chips have a wine outline; add, remove and the form buttons use the browser default.
 7. **Hard-coded colours** outside the token set (live: `#fbf6ee`, `#4a413d`, `#eee6d9`; page: `#2f5d3a`, `#8fc49a`).
 8. **`user-select: none` on headers**: the title text cannot be selected or copied.
 9. **No spacing token scale.**
@@ -481,6 +499,8 @@ Stated plainly, with the cheapest fix. None of these was changed without a decis
 11. **No visual regression test.** The tests assert geometry, state and timing; a colour or spacing change that keeps the geometry passes them.
 12. **The live app's text link "Open posting ↗" is 20 px tall** (section 7).
 13. **The live app is light only**; the page has dark mode.
+14. **The two headers have diverged** (9 October): the live app has the Filter button, plain figures and no aim; the single-file page still has the sticky bar with chips, the fold bar and `n/3` counts. Porting the live header to the page is a bounded job (its filter panel would also hold the search box); it was not done because only the app was asked for.
+15. **One failing fold check at the page bottom** (section 10): the deep close of the last category exceeds the per-frame step limit; it predates the header change.
 
 ## 13. Decision log
 
@@ -494,6 +514,8 @@ All times 8 and 9 October 2026 (AppDeploy versions in UTC).
 | 8 Oct, v32 (23:36) | Colour per category | Category titles and job titles looked alike while scrolling |
 | 8 Oct, v33 (23:48) | Close duration stretches with the scroll distance (240 to 420 ms) | A near-window-high drop in 240 ms was too fast for the eye |
 | 9 Oct, v34 (01:09) | City folds inside categories, colour per city, pinned stack, `overflow: clip` | "I need to distinguish the cities within one category" |
+| 9 Oct, v35 to v37 | Link check, renumbering of the list to 1..89 with a one-time move of the owner's marks, deletion of hidden rows, clean slate for marks from the earlier list | "Why do I still have them? Fix the enumerating" |
+| 9 Oct, v38 | Header redesigned: large title, plain figures between hairlines, utility text buttons, one Filter button with a folding panel (segmented area control, single-category chips, counts on every option), removable tags, aim line and `n/3` counts removed | The tiles and chips "don't look good, their borders are too stiff"; the category strip did not say what a click does; the aim "is not necessary to see all the time" |
 | 8 and 9 Oct, repository | Single-file page brought level with the live app; DESIGN.md; build kit, tests and this document | Share and keep the work |
 
 **Rejected, and why.**
@@ -504,6 +526,8 @@ All times 8 and 9 October 2026 (AppDeploy versions in UTC).
 - *Colour on job cards beyond the city pill:* it would destroy principle 2.
 - *One "+ Add posting" per city:* one per category keeps the form and its area choice in one place.
 - *Animating Expand all and Collapse all:* thirty heights moving at once is noise.
+- *A sticky filter bar in the live app:* the page's bar works because it carries the search box; in the app the filters are used rarely, so a bar that followed you would be furniture (principle 9). The tags next to the Filter button carry the state instead.
+- *Multi-select categories:* the question the reader asks is "show me this one", not a set; one category at a time keeps the chips and the tags unambiguous.
 
 ## 14. Glossary
 
