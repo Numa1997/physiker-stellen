@@ -6,7 +6,7 @@ Two copies carry it: the live app (AppDeploy app `physik-radar-xvy59b`; a snapsh
 
 ## 1. What it is, in one paragraph
 
-Two levels fold. Every category is a fold-out card; inside an open category, each of the three cities is a fold-out panel. A header is always the control: a category header shows the number, the title and the counts per city in the category's own colour; a city header shows the city's name and "n open" (on the repo page "n open · aim 3") in the city's colour, smaller and in capitals, so the two levels never look alike. Headers never change size. Click one and its body unfolds beneath it; the real height animates, the content slides down 8 px while it fades in, and the chevron turns. Everything that moves, including the window's scroll position, follows one curve on one clock, so the page never snaps, never jumps and never leaves you looking at an empty edge. While you read, the open category's header pins to the top and the open city's header pins right under it, so the top of the window always says *which category, which city*; scroll into the next city and its header takes over. Everything can be opened or closed at once, instantly. Above the boards, the live app's filters (area, and one category at a time) sit behind a single Filter button whose panel folds with the same curve and clock, and whatever is filtered shows as a removable tag next to the button. Job titles stay black; colour belongs to the category and the city headers, so you can always tell a boundary from a job card while scrolling.
+Two levels fold. Every category is a fold-out card; inside an open category, each of the three cities is a fold-out panel. A header is always the control: a category header shows the number, the title and the counts per city in the category's own colour; a city header shows the city's name and "n open" in the city's colour, smaller and in capitals, so the two levels never look alike. Headers never change size. Click one and its body unfolds beneath it; the real height animates, the content slides down 8 px while it fades in, and the chevron turns. Everything that moves, including the window's scroll position, follows one curve on one clock, so the page never snaps, never jumps and never leaves you looking at an empty edge. While you read, the open category's header pins to the top and the open city's header pins right under it, so the top of the window always says *which category, which city*; scroll into the next city and its header takes over. Everything can be opened or closed at once, instantly. Above the boards, the filters (area, one category at a time, and on the repo page the search) sit behind a single Filter button whose panel folds with the same curve and clock, and whatever is filtered shows as a removable tag next to the button. Job titles stay black; colour belongs to the category and the city headers, so you can always tell a boundary from a job card while scrolling.
 
 ## 2. What it fixed (measured, not guessed)
 
@@ -58,7 +58,7 @@ Also: `aria-expanded` and `aria-controls` on the button, `aria-label` "Expand �
 | Body slide | 8 px down, fades from 0 | `.fold[data-open="0"] > .fold-i > *` |
 | Reveal threshold | header below max(pin line + 48 px, 40 % of window height), or above its pin line | `reveal()` |
 | Reveal margin | category: 12 px below its pin line; city: 8 px below its pin line (just under the category header) | `reveal()` |
-| Pin lines | category: 0 (live app) or the top bar's bottom (repo page); city: category pin line + `--head-h` | `pinLine()`, CSS `top` of the sticky headers |
+| Pin lines | category: the top of the window (both, since the repo page lost its sticky bar on 9 October); city: category pin line + `--head-h` | `pinLine()`, CSS `top` of the sticky headers |
 | Expand all / Collapse all | instant | `foldAll()` |
 | Persistence | open categories, open cities and chosen area in `localStorage` (`radar.open`, `radar.openAreas`, `radar.area`; repo page: `pr.open`, `pr.openAreas`, `pr.applied`) | per browser, a convenience, never data |
 
@@ -117,7 +117,7 @@ One city panel inside it (same hooks, one level down):
 <div class="area" id="area-ai-berlin" data-area="berlin" data-key="ai:berlin" data-collapsed="1">
   <div class="area-head" data-head="1">                 <!-- click: toggle -->
     <span class="area-name">Berlin</span>
-    <span class="area-count">3 open</span>                  <!-- repo page: <span class="full">3 open</span> · aim 3 -->
+    <span class="area-count">3 open</span>
     <button class="atoggle" data-toggle="1" aria-expanded="false" aria-controls="area-ai-berlin-body" aria-label="Expand Berlin, AI training on physics & maths">…same chevron…</button>
   </div>
   <div class="fold" data-fold="1" data-open="0" id="area-ai-berlin-body" inert>
@@ -177,7 +177,7 @@ Serve the page locally, drive it with Playwright at 1280 × 900 and 390 × 844 (
 - **Both levels:** Expand all / Collapse all reach all 30 cities (also when a category filter hides the others); one open category and one open city survive a reload; the Berlin option shows Berlin open by itself, it can be closed there, and "All" brings back the remembered state; on the repo page a search opens every category and city and clearing it restores them.
 - No page errors in the console.
 
-All of this is automated in `design/test/` and runs with one command, `node design/test/run.mjs` (needs `playwright` and a Chromium): `repotest.cjs` and `citytest.cjs` against `index.html` (48 + 54 checks, in light, phone and dark), `headtest.cjs`, `foldtest.cjs` and `citytest.cjs` against the live app's view code in a stand-in harness (48 + 35 + 36 checks; `headtest.cjs` covers the v38 header and filter panel, DESIGN-SYSTEM.md 5.1 and 10). 220 of 221 checks pass (the one failure is the page-bottom deep close of the last category, which predates the header change: DESIGN-SYSTEM.md section 10); before the header change, 173 checks passed; three consecutive runs on 9 October 2026 gave the same result. Expectations are derived from the data, so a refreshed list does not break them; where a test drives a panel it first checks that the panel holds a posting and says so if not.
+All of this is automated in `design/test/` and runs with one command, `node design/test/run.mjs` (needs `playwright` and a Chromium): `repotest.cjs` and `citytest.cjs` against `index.html` (48 + 54 checks, in light, phone and dark), `headtest.cjs` against both (52 checks on the page, 48 on the app; it covers the 9 October header and filter panel, DESIGN-SYSTEM.md 5.1 and 10), `foldtest.cjs` and `citytest.cjs` against the live app's view code in a stand-in harness (35 + 36 checks). 272 of 273 checks pass (the one failure is the page-bottom deep close of the last category, which predates the header change: DESIGN-SYSTEM.md section 10); before the header change, 173 checks passed; three consecutive runs on 9 October 2026 gave the same result. Expectations are derived from the data, so a refreshed list does not break them; where a test drives a panel it first checks that the panel holds a posting and says so if not.
 
 ## 8. Things deliberately not done
 

@@ -140,7 +140,7 @@ const peakSpeed = pts => { let m = 0; for (let i = 0; i < pts.length; i++) for (
     // ---- one-city filter opens that city by itself; back to all restores
     const chip = KIND === 'app' ? 'button.segbtn:has-text("Berlin")' : '[data-loc="berlin"]';
     const allChip = KIND === 'app' ? 'button.segbtn:has-text("All areas")' : '[data-loc="all"]';
-    if (KIND === 'app' && (await page.getAttribute('#fpanel', 'data-open')) === '0') { await page.click('.fbtn'); await page.waitForTimeout(450); }
+    if ((await page.getAttribute('#fpanel', 'data-open')) === '0') { await page.click('.fbtn, #fbtn'); await page.waitForTimeout(450); }
     await page.click(chip); await page.waitForTimeout(400);
     const f = await page.evaluate(() => ({ shown: [...document.querySelectorAll('#cat-pm .area')].map(a => a.id + ':' + a.getAttribute('data-collapsed')) }));
     await page.click('#area-pm-berlin > [data-head] [data-toggle]'); await page.waitForTimeout(500);
@@ -165,6 +165,7 @@ const peakSpeed = pts => { let m = 0; for (let i = 0; i < pts.length; i++) for (
       check(p + 'open category and city survive a re-render', kept.join() === '0,0', kept.join());
       await page.click('#area-pm-leipzig .card .acts button');
       // search opens every category and city; clearing restores
+      if ((await page.getAttribute('#fpanel', 'data-open')) === '0') { await page.click('#fbtn'); await page.waitForTimeout(450); }
       await page.fill('#q', 'meridial'); await page.waitForTimeout(300);
       const sOpen = await page.evaluate(() => [...document.querySelectorAll('section.cat, .area')].every(n => n.getAttribute('data-collapsed') === '0'));
       await page.fill('#q', ''); await page.waitForTimeout(300);

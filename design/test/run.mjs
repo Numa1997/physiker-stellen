@@ -73,8 +73,9 @@ mkdirSync(env.OUT, { recursive: true });
 
 const suites = [
   ['repo', 'repotest.cjs', [], repoBase],
+  ['repo', 'headtest.cjs', ['/index.html', 'repo'], repoBase],
   ['repo', 'citytest.cjs', ['/index.html', 'repo'], repoBase],
-  ['app', 'headtest.cjs', [], appBase],
+  ['app', 'headtest.cjs', ['/index.html', 'app'], appBase],
   ['app', 'foldtest.cjs', [], appBase],
   ['app', 'citytest.cjs', ['/index.html', 'app'], appBase],
 ].filter(([kind]) => want === 'all' || want === kind);

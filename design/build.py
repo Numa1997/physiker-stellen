@@ -44,21 +44,31 @@ page = f"""{head}
 {css}
 </style>
 
-<div class="bar"><div class="bar-i" id="bar">
-  <input id="q" class="search" type="search" placeholder="Search title, company, city" aria-label="Search">
-  <button class="chip" data-loc="all" aria-pressed="true">All</button>
-  <button class="chip" data-loc="berlin" aria-pressed="false">Berlin</button>
-  <button class="chip" data-loc="leipzig" aria-pressed="false">Leipzig area</button>
-  <button class="chip" data-loc="de" aria-pressed="false">Rest of Germany</button>
-  <div class="foldbar" role="group" aria-label="Open or close all categories"><button class="foldbtn" id="expand-all" type="button">Expand all</button><button class="foldbtn" id="collapse-all" type="button">Collapse all</button></div>
-</div></div>
-
 <div class="wrap">
   <header class="mast">
-    <p class="eyebrow">Job dossier · Numa · BSc Physics, Leipzig</p>
-    <h1>Physics roles, Berlin &amp; Leipzig</h1>
-    <p class="lede">Every posting accepts a Bachelor's in physics or natural science and names it in the ad; the grey box on each card is the employer's own wording, as proof. Links go to the employer's own page, or to the job board where the employer has none. Aim: {target} open postings per area in every category.</p>
-    <div class="figs" id="figs"></div>
+    <div class="topline">
+      <p class="eyebrow">Job dossier · Numa · BSc Physics, Leipzig</p>
+      <div class="utility" role="group" aria-label="Open or close all categories"><button class="ubtn" id="expand-all" type="button">Expand all</button><button class="ubtn" id="collapse-all" type="button">Collapse all</button></div>
+    </div>
+    <div class="titlerow">
+      <h1>Physics roles, Berlin &amp; Leipzig</h1>
+      <div class="figs" id="figs"></div>
+    </div>
+    <p class="lede">Every posting accepts a Bachelor's in physics or natural science and names it in the ad; the grey box on each card is the employer's own wording, as proof. Links go to the employer's own page, or to the job board where the employer has none.</p>
+    <div class="filterrow">
+      <button class="fbtn" id="fbtn" type="button" aria-expanded="false" aria-controls="fpanel">Filter</button>
+      <span class="ftags" id="ftags"></span>
+    </div>
+    <div class="fpanel" id="fpanel" data-open="0" inert><div class="fpanel-i"><div class="fcard">
+      <div><p class="flabel">Search</p><input id="q" class="search" type="search" placeholder="Title, company, city, skill" aria-label="Search"></div>
+      <div><p class="flabel">Area</p><div class="seg" role="group" aria-label="Area">
+        <button class="segbtn on" type="button" data-loc="all" aria-pressed="true">All areas <span class="n" data-n="all"></span></button>
+        <button class="segbtn" type="button" data-loc="berlin" aria-pressed="false">Berlin <span class="n" data-n="berlin"></span></button>
+        <button class="segbtn" type="button" data-loc="leipzig" aria-pressed="false">Leipzig area <span class="n" data-n="leipzig"></span></button>
+        <button class="segbtn" type="button" data-loc="de" aria-pressed="false">Rest of Germany <span class="n" data-n="de"></span></button>
+      </div></div>
+      <div><p class="flabel">Category · pick one to show only that</p><div class="cchips" id="ccats" role="group" aria-label="Category"></div></div>
+    </div></div></div>
   </header>
   <main class="cats" id="cats"></main>
   <footer id="foot"></footer>

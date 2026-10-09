@@ -20,7 +20,8 @@ const peakSpeed = pts => { let m = 0; for (let i = 0; i < pts.length; i++) for (
     await page.reload(); await page.waitForSelector('section.cat');
     const p = label + ': ';
     const state = key => page.$eval('#cat-' + key, n => ({ collapsed: n.getAttribute('data-collapsed'), open: n.querySelector(':scope > [data-fold]').getAttribute('data-open'), inert: n.querySelector(':scope > [data-fold]').hasAttribute('inert'), h: Math.round(n.querySelector(':scope > [data-fold]').getBoundingClientRect().height) }));
-    const bar = () => page.$eval('.bar', b => Math.round(b.getBoundingClientRect().bottom));
+    const bar = () => page.evaluate(() => Math.round(document.querySelector('.bar')?.getBoundingClientRect().bottom ?? 0));
+    const openPanel = async () => { if ((await page.getAttribute('#fpanel', 'data-open')) === '0') { await page.click('#fbtn'); await page.waitForTimeout(450); } };
 
     const n = await page.$$eval('section.cat', s => s.length);
     const nCats = await page.evaluate(() => CATS.length);
@@ -84,7 +85,7 @@ const peakSpeed = pts => { let m = 0; for (let i = 0; i < pts.length; i++) for (
 
     // search opens everything; clearing it restores
     await page.click('#cat-pm > [data-head] h2'); await page.waitForTimeout(500);
-    await page.fill('#q', 'meridial'); await page.waitForTimeout(300);
+    await openPanel(); await page.fill('#q', 'meridial'); await page.waitForTimeout(300);
     const searchOpen = await page.$$eval('section.cat', ss => ss.every(x => x.getAttribute('data-collapsed') === '0'));
     const hits = await page.$$eval('.card', cs => cs.length);
     const wantHits = await page.evaluate(() => DATA.filter(x => !x.removed_on && [x.title, x.title_original, x.company, x.city, (x.skills || []).join(' ')].join(' ').toLowerCase().includes('meridial')).length);

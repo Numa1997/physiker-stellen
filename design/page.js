@@ -3,7 +3,7 @@ const LOCS = [['berlin','Berlin','var(--wine)'],['leipzig','Leipzig area','var(-
 const TARGET = __TARGET__;
 const PILL = {berlin:['var(--wine-soft)','var(--wine)'],leipzig:['var(--amber-soft)','var(--amber)'],de:['var(--slate-soft)','var(--slate)']};
 const store = {get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
-let applied = store.get('pr.applied',{}), openCats = store.get('pr.open',{}), loc = 'all', q = '';
+let applied = store.get('pr.applied',{}), openCats = store.get('pr.open',{}), loc = store.get('pr.area','all'), cat = store.get('pr.cat','all'), q = '', filterOpen = false;
 const motion = () => !matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function h(tag, attrs, ...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs||{})){if(v==null||v===false)continue;if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v===true?'':v)}for(const c of kids.flat()){if(c==null||c===false)continue;e.append(c instanceof Node?c:document.createTextNode(String(c)))}return e}
@@ -49,9 +49,7 @@ function glide(to, ms) {
   })(performance.now());
 }
 
-const bar = document.querySelector('.bar');
-const barBottom = () => bar.getBoundingClientRect().bottom;   // the pinned header sits just under the top bar
-new ResizeObserver(() => document.documentElement.style.setProperty('--bar-h', bar.offsetHeight + 'px')).observe(bar);
+const barBottom = () => 0;   // no sticky bar any more (9 Oct 2026): a pinned category header sits at the top of the window
 
 function chev(size = 14) {
   const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'), path = document.createElementNS(NS, 'path');
@@ -154,7 +152,7 @@ function foldAll(open) {
   const list = document.getElementById('cats');
   if (!open) { const top = list.getBoundingClientRect().top + scrollY - barBottom() - 12; if (scrollY > top) scrollTo({ top, behavior: 'instant' }); }
   list.classList.add('no-anim');
-  for (const [key] of CATS) { if (!q) open ? openCats[key] = true : delete openCats[key]; setFold(secNode(key), open); }
+  for (const [key] of CATS) { if (!q) open ? openCats[key] = true : delete openCats[key]; if (secNode(key)) setFold(secNode(key), open); }
   for (const node of list.querySelectorAll('.area')) { rememberArea(node.dataset.key, open, false); setFold(node, open); }
   if (!q) { store.set('pr.open', openCats); store.set('pr.openAreas', openAreas); }
   void list.offsetWidth;
@@ -196,8 +194,7 @@ function city(catKey, catName, g, label, inCity, jobs) {
   const k = areaKey(catKey, g), open = isAreaOpen(k), id = 'area-' + catKey + '-' + g, n = inCity.length;
   const name = label + ', ' + catName;
   const btn = h('button', { type: 'button', class: 'atoggle', 'data-toggle': '1', 'data-label': name, 'aria-controls': id + '-body', 'aria-expanded': String(open), 'aria-label': (open ? 'Collapse ' : 'Expand ') + name, onclick(e) { e.stopPropagation(); toggleArea(k); } }, chev(12));
-  const count = q ? [h('span', { class: jobs.length ? 'full' : 'short' }, `${jobs.length} of ${n} match`)]
-                  : [h('span', { class: n < TARGET ? 'short' : 'full' }, `${n} open`), ` · aim ${TARGET}`];
+  const count = q ? [h('span', { class: jobs.length ? 'full' : 'short' }, `${jobs.length} of ${n} match`)] : [`${n} open`];
   return h('div', { class: 'area', id, 'data-area': g, 'data-key': k, 'data-collapsed': open ? '0' : '1' },
     h('div', { class: 'area-head', 'data-head': '1', onclick() { toggleArea(k); } },
       h('span', { class: 'area-name' }, label),
@@ -210,7 +207,7 @@ function city(catKey, catName, g, label, inCity, jobs) {
 
 function section(key, name, i, all, mine) {
   const open = q ? true : !!openCats[key];
-  const counts = LOCS.map(([g, l], j) => { const n = all.filter(p => p.location_group === g).length; return [j ? ' · ' : '', h('span', { class: n < TARGET ? 'short' : 'full' }, `${l} ${n}/${TARGET}`)]; });
+  const counts = LOCS.map(([g, l], j) => { const n = all.filter(p => p.location_group === g).length; return [j ? ' · ' : '', `${l} ${n}`]; });
   const btn = h('button', { type: 'button', class: 'toggle', 'data-toggle': '1', 'data-label': name, 'aria-controls': 'cat-' + key + '-body', 'aria-expanded': String(open), 'aria-label': (open ? 'Collapse ' : 'Expand ') + name, onclick(e) { e.stopPropagation(); toggleSec(key); } }, chev());
   const body = h('div', { class: 'cat-body' });
   for (const [g, l] of LOCS) {
@@ -227,20 +224,47 @@ function section(key, name, i, all, mine) {
       h('div', { class: 'fold-i' }, body)));
 }
 
+// Filters: an area, one category at a time, and the search. They live in a
+// panel behind the Filter button; whatever is on shows as a tag beside it.
+const catName = key => (CATS.find(([k]) => k === key) || [])[1];
+function setLoc(g) { loc = g; store.set('pr.area', g); filterClosed.clear(); document.querySelectorAll('[data-loc]').forEach(x => { const on = x.dataset.loc === g; x.setAttribute('aria-pressed', String(on)); x.classList.toggle('on', on); }); render(); }
+function setCat(key) { cat = key; store.set('pr.cat', key); if (key !== 'all' && !q) { openCats[key] = true; store.set('pr.open', openCats); } render(); }
+function setQ(v) { q = v.trim().toLowerCase(); const box = document.getElementById('q'); if (box.value !== v) box.value = v; render(); }
+function setPanel(open) { filterOpen = open; const p = document.getElementById('fpanel'); p.setAttribute('data-open', open ? '1' : '0'); p.inert = !open; document.getElementById('fbtn').setAttribute('aria-expanded', String(open)); }
+const tag = (text, undo, title) => h('button', { type: 'button', class: 'tag', title, onclick: undo }, text, h('i', { 'aria-hidden': 'true' }, '×'));
+
 function render(){
+  if (cat !== 'all' && !CATS.some(([k]) => k === cat)) cat = 'all';
   const live=DATA.filter(p=>!p.removed_on);
   const shown=live.filter(p=>(loc==='all'||p.location_group===loc)&&match(p));
   const figs=document.getElementById('figs');figs.replaceChildren(
     ...[[live.length,'live postings'],[live.filter(p=>p.location_group==='berlin').length,'Berlin'],[live.filter(p=>p.location_group==='leipzig').length,'Leipzig area'],[Object.keys(applied).length,'marked applied']]
       .map(([n,l])=>h('div',{class:'fig'},h('b',{},n),h('span',{},l))));
+  // the filter panel: counts under the other filters, so each option says what you will get
+  const inCat = p => cat === 'all' || p.category === cat;
+  for (const el of document.querySelectorAll('.seg .n')) el.textContent = live.filter(p => (el.dataset.n === 'all' || p.location_group === el.dataset.n) && inCat(p) && match(p)).length;
+  const catCount = key => live.filter(p => (key === 'all' || p.category === key) && (loc === 'all' || p.location_group === loc) && match(p)).length;
+  document.getElementById('ccats').replaceChildren(
+    h('button', { type: 'button', class: 'cchip all' + (cat === 'all' ? ' on' : ''), 'aria-pressed': String(cat === 'all'), onclick: () => setCat('all') }, 'All categories', h('span', { class: 'n' }, catCount('all'))),
+    ...CATS.map(([key, name], i) => h('button', { type: 'button', class: 'cchip' + (cat === key ? ' on' : ''), 'data-cat': key, 'aria-pressed': String(cat === key), onclick: () => setCat(cat === key ? 'all' : key) },
+      h('span', { class: 'jn' }, String(i + 1).padStart(2, '0')), name, h('span', { class: 'n' }, catCount(key)))));
+  const tags = [
+    loc !== 'all' && tag(LOCS.find(([g]) => g === loc)[1], () => setLoc('all'), 'Show all areas'),
+    cat !== 'all' && tag(catName(cat), () => setCat('all'), 'Show all categories'),
+    q && tag('“' + q + '”', () => setQ(''), 'Clear the search'),
+  ].filter(Boolean);
+  document.getElementById('ftags').replaceChildren(...(tags.length ? tags : [h('span', { class: 'fnote' }, 'Showing everything')]));
   const cats=document.getElementById('cats');
-  cats.replaceChildren(...CATS.map(([key,name],i)=>section(key,name,i,live.filter(p=>p.category===key),shown.filter(p=>p.category===key))));
+  cats.replaceChildren(...CATS.filter(([key]) => cat === 'all' || key === cat).map(([key,name],i)=>section(key,name,i,live.filter(p=>p.category===key),shown.filter(p=>p.category===key))));
   headObserver.disconnect();
   for (const head of cats.querySelectorAll('.cat > [data-head]')) headObserver.observe(head);
   document.getElementById('foot').textContent=`List updated ${UPDATED} · ${live.length} live postings · "Mark applied" is saved in this browser only.`;
 }
-document.getElementById('q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();render()});
-document.querySelectorAll('[data-loc]').forEach(b=>b.addEventListener('click',()=>{loc=b.dataset.loc;filterClosed.clear();document.querySelectorAll('[data-loc]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));render()}));
+document.getElementById('q').addEventListener('input',e=>setQ(e.target.value));
+document.querySelectorAll('[data-loc]').forEach(b=>b.addEventListener('click',()=>setLoc(b.dataset.loc)));
+document.getElementById('fbtn').append(chev(12));
+document.getElementById('fbtn').addEventListener('click',()=>setPanel(!filterOpen));
+document.querySelectorAll('[data-loc]').forEach(x => { const on = x.dataset.loc === loc; x.setAttribute('aria-pressed', String(on)); x.classList.toggle('on', on); });
 document.getElementById('expand-all').addEventListener('click',()=>foldAll(true));
 document.getElementById('collapse-all').addEventListener('click',()=>foldAll(false));
 render();
