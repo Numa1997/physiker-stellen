@@ -88,7 +88,7 @@ generated from `design/` and must not be edited by hand.
 ```
 python3 <skill>/scripts/sync_page.py backend/data/postings.json backend/data/meta.json index.html
 python3 design/build.py --check           # must say: index.html is exactly what design/ produces
-node design/test/run.mjs repo             # optional, 102 browser checks on the page; `app` runs 119 on the live view code; needs playwright
+node design/test/run.mjs repo             # optional, 154 browser checks on the page (header, folds, cities); `app` runs 119 on the live view code; needs playwright
 git add index.html && git commit -m "Postings YYYY-MM-DD: +<added> / -<removed>" && git push -u origin <branch>
 ```
 
