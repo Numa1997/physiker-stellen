@@ -1,0 +1,5 @@
+/* Static copy only.
+   There are no accounts, so there is nothing to sign out of.
+   The email application log stays private: it is not published here. */
+.ubtn.signout { display: none; }
+#cat-email-log { display: none; }

@@ -7,13 +7,24 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- The artifact's own stylesheet, byte for byte. -->
-<link rel="stylesheet" href="app/styles/style.css">
-<link rel="stylesheet" href="app/styles/gate.css">
+<link rel="stylesheet" href="src/claude/styles/board.css">
+<link rel="stylesheet" href="src/claude/styles/static.css">
 </head>
 <body>
 <!-- This page holds no logic and no data. It mounts the app and stops. -->
 <div id="app"><p id="boot-msg">Loading…</p></div>
-<script type="module" src="app/boot.js"></script>
+<script type="module" src="src/claude/boot.js"></script>
+<script>
+  // A downloaded copy of this page cannot read data/*.json from disk; say so
+  // instead of showing 'Loading...' forever.
+  (function () {
+    var m = document.getElementById('boot-msg');
+    if (location.protocol === 'file:') {
+      if (m) m.textContent = 'This is a downloaded copy. Open it through a web server (the GitHub Pages address), not as a file.';
+    } else {
+      setTimeout(function () { if (m) m.textContent = 'Still loading after 20 seconds. Check the connection or reload.'; }, 20000);
+    }
+  })();
+</script>
 </body>
 </html>
