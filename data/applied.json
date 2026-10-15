@@ -1,0 +1,62 @@
+[
+ {
+  "card": 31,
+  "status": "rejected",
+  "date": "2026-10-09"
+ },
+ {
+  "card": 32,
+  "status": "rejected",
+  "date": "2026-10-09"
+ },
+ {
+  "card": 51,
+  "status": "rejected",
+  "date": "2026-10-09"
+ },
+ {
+  "card": 70,
+  "status": "rejected",
+  "date": "2026-10-09"
+ },
+ {
+  "card": 46,
+  "status": "rejected",
+  "date": "2026-10-12"
+ },
+ {
+  "card": 2,
+  "status": "confirmed",
+  "date": "2026-10-11"
+ },
+ {
+  "card": 11,
+  "status": "confirmed",
+  "date": "2026-10-11"
+ },
+ {
+  "card": 52,
+  "status": "confirmed",
+  "date": "2026-10-11"
+ },
+ {
+  "card": 24,
+  "status": "confirmed",
+  "date": "2026-10-11"
+ },
+ {
+  "card": 36,
+  "status": "confirmed",
+  "date": "2026-10-06"
+ },
+ {
+  "card": 37,
+  "status": "confirmed",
+  "date": "2026-10-11"
+ },
+ {
+  "card": 82,
+  "status": "confirmed",
+  "date": "2026-10-11"
+ }
+]
