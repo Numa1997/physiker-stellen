@@ -1,7 +1,7 @@
 # Physiker Stellen
 
 Numa's board of physics job postings, as a static GitHub Pages site.
-It is a copy of the AppDeploy app `physik-radar-xvy59b` (version v48, 15 Oct 2026): the same page code
+It is a copy of the AppDeploy app `physik-radar-xvy59b` (version v49, 15 Oct 2026): the same page code
 (`src/claude/view/page.js`, `dom.js`) and the same design (`src/claude/styles/board.css`, see `DESIGN.md`).
 
 ## What differs from the AppDeploy app
