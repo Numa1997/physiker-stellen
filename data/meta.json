@@ -1,11 +1,15 @@
 [
  {
   "key": "updated",
-  "value": "2026-10-15"
+  "value": "2026-10-16"
  },
  {
   "key": "rule",
   "value": "Every posting names physics or natural sciences (Physik, Physiker, Naturwissenschaften) as an accepted degree, accepts a Bachelor, is not student or PhD, and links to the employer's own page. Experience and leadership demands are ignored for Production supervisor (you have that experience); elsewhere senior-only roles are left out. AI training means training or grading AI on physics and maths problems. Content creation excludes school teaching. Device testing & measurement means jobs whose main output is a measurement, test result, calibration or qualification of a device, or the rig that produces it."
+ },
+ {
+  "key": "rule_eu",
+  "value": "Europe outside Germany. Every posting names physics or natural sciences as an accepted degree, accepts a Bachelor, is not student or PhD, links to the employer's own page, and is at an employer that hires internationals: the ad offers visa sponsorship, work-permit or relocation support, or the employer is on the country's official sponsor register (Netherlands IND, UK Home Office, Denmark SIRI, Ireland employment-permit list). The working language is English or German, or no local language is demanded at working level. Experience and leadership demands are ignored for Production supervisor; elsewhere senior-only roles are left out."
  },
  {
   "key": "target_per_area",

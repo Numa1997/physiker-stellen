@@ -50,6 +50,10 @@ button { font: inherit; cursor: pointer; }
 .ubtn.theme { display: inline-flex; align-items: center; gap: 6px; }
 .ubtn.theme svg { flex: none; }
 
+/* The board switch (Germany / Europe): the same segmented control as the
+   area filter, just under the kicker line. */
+.boardrow { margin-top: 14px; }
+
 /* The title is the biggest thing on the page; the three numbers sit beside it
    as plain figures, separated by hairlines, not as boxes. */
 .titlerow { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px 40px; flex-wrap: wrap; margin-top: 8px; }
@@ -182,6 +186,10 @@ button { font: inherit; cursor: pointer; }
 [data-area="berlin"] { --area: var(--wine); }
 [data-area="leipzig"] { --area: var(--amber); }
 [data-area="de"] { --area: var(--slate); }
+/* The Europe board reuses the same three colours in the same order. */
+[data-area="benelux"] { --area: var(--wine); }
+[data-area="nordics"] { --area: var(--amber); }
+[data-area="europe"] { --area: var(--slate); }
 .area { --area-tint: color-mix(in srgb, var(--area) 6%, var(--card)); --area-line: color-mix(in srgb, var(--area) 30%, var(--card));
   margin-top: 12px; background: var(--area-tint); border: 1px solid var(--area-line); border-left: 4px solid var(--area); border-radius: 8px; }
 .area-head { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; padding: 8px 10px 8px 14px; background: var(--area-tint); border-radius: 4px 8px 8px 4px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; transition: box-shadow .15s ease; }
@@ -211,6 +219,9 @@ button { font: inherit; cursor: pointer; }
 .pill.area-berlin { background: var(--wine-soft); color: var(--wine); }
 .pill.area-leipzig { background: var(--amber-soft); color: var(--amber); }
 .pill.area-de { background: var(--slate-soft); color: var(--slate); }
+.pill.area-benelux { background: var(--wine-soft); color: var(--wine); }
+.pill.area-nordics { background: var(--amber-soft); color: var(--amber); }
+.pill.area-europe { background: var(--slate-soft); color: var(--slate); }
 .card h4 { margin: 0; font: 400 20px/1.2 var(--serif); }
 .card h4 a { text-decoration: none; }
 .card h4 a:hover { color: var(--wine); text-decoration: underline; }

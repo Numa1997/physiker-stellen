@@ -1,5 +1,8 @@
 // The whole page: eleven categories, each with a "+" to add a posting, the
 // open cards sorted by area, and the record of what was removed and why.
+// Two boards share the page: Germany and Europe (outside Germany). The switch
+// under the masthead picks one; each board has its own three areas, and the
+// record counts both.
 // A card leaves the list in one of two ways, Applied or Not relevant, and
 // both are kept and counted in "Your record".
 //
@@ -144,11 +147,13 @@ export function renderPage(mount, data) {
   let applicationLog = data.applicationLog ?? [];
   let categories = data.categories ?? [];
   let areas = data.areas ?? [];
+  let boards = data.boards ?? [['de', 'Germany']];
 
   // Theme: 'auto' follows the system, or 'light' / 'dark' as chosen; stored per browser. The button cycles the three.
   let theme = store.get('radar.theme', 'auto');
   if (!['auto', 'light', 'dark'].includes(theme)) theme = 'auto';
   document.documentElement.setAttribute('data-theme', theme);
+  let board = store.get('radar.board', 'de');
   let area = store.get('radar.area', 'all');
   let cat = store.get('radar.cat', 'all');   // 'all' or one category key: the board then shows only that category
   let filterOpen = false;                    // the filter panel starts closed; it is only needed to change the view
@@ -166,6 +171,9 @@ export function renderPage(mount, data) {
   const target = Number(meta.target_per_area) || 3;
   const catLabel = key => categories.find(([k]) => k === key)?.[1] ?? key;
   const areaLabel = key => areas.find(([k]) => k === key)?.[1] ?? key;
+  const boardOf = key => areas.find(([k]) => k === key)?.[2] ?? 'de';
+  // The areas of the board on show; every list, count and filter below uses these.
+  const boardAreas = () => areas.filter(a => (a[2] ?? 'de') === board);
 
   function cards() {
     const listed = postings.filter(p => !p.removed_on).map(p => ({
@@ -437,6 +445,7 @@ export function renderPage(mount, data) {
     if (next.applicationLog) applicationLog = next.applicationLog;
     if (next.categories) categories = next.categories;
     if (next.areas) areas = next.areas;
+    if (next.boards) boards = next.boards;
   }
 
   // ---- view --------------------------------------------------------------
@@ -492,7 +501,7 @@ export function renderPage(mount, data) {
       el('label', {}, el('span', {}, 'Company (optional)'), el('input', { type: 'text', ...bind('company') })),
       el('label', {}, el('span', {}, 'City'), el('input', { type: 'text', ...bind('city') })),
       el('fieldset', {}, el('legend', {}, 'Area'),
-        ...areas.map(([key, label]) => el('label', { class: 'radio' },
+        ...boardAreas().map(([key, label]) => el('label', { class: 'radio' },
           el('input', { type: 'radio', name: 'area', value: key, checked: f.area === key, onchange: () => { f.area = key; } }), label))),
       f.error && el('p', { class: 'form-error', role: 'alert' }, f.error),
       el('div', { class: 'form-buttons' },
@@ -515,8 +524,12 @@ export function renderPage(mount, data) {
 
   function render() {
     if (pendingData && !form && !choosing) { applyData(pendingData); pendingData = null; }
+    if (!boards.some(([k]) => k === board)) board = 'de';
+    const areas = boardAreas();
+    if (area !== 'all' && !areas.some(([k]) => k === area)) area = 'all';
     const all = cards();
-    const openList = all.filter(c => !outcomeOf(marks.get(c.key)));
+    const openAll = all.filter(c => !outcomeOf(marks.get(c.key)));
+    const openList = openAll.filter(c => boardOf(c.area) === board);
     const record = recordItems(all);
     const applied = record.filter(r => r.outcome === 'applied');
     const notRelevant = record.filter(r => r.outcome === 'not_relevant');
@@ -527,6 +540,19 @@ export function renderPage(mount, data) {
     const areaCount = key => openList.filter(c => (key === 'all' || c.area === key) && (cat === 'all' || c.category === cat)).length;
     const catCount = key => openList.filter(c => (key === 'all' || c.category === key) && (area === 'all' || c.area === area)).length;
     const setArea = key => { area = key; store.set('radar.area', key); filterClosed.clear(); render(); };
+    const setBoard = key => {
+      if (key === board) return;
+      board = key; store.set('radar.board', key);
+      area = 'all'; store.set('radar.area', 'all'); filterClosed.clear(); form = null; choosing = null;
+      render();
+      scrollTo({ top: 0, behavior: 'instant' });
+    };
+    const boardSwitch = el('div', { class: 'boardrow' },
+      el('div', { class: 'seg', role: 'group', 'aria-label': 'Board' },
+        ...boards.map(([key, label]) => el('button', {
+          type: 'button', class: 'segbtn' + (board === key ? ' on' : ''), 'aria-pressed': String(board === key),
+          onclick: () => setBoard(key) }, label,
+          el('span', { class: 'n' }, openAll.filter(c => boardOf(c.area) === key).length)))));
     const setCat = key => {
       cat = key; store.set('radar.cat', key);
       if (key !== 'all') { openSecs.add(key); saveOpen(); }   // the one category you picked is shown open
@@ -573,8 +599,9 @@ export function renderPage(mount, data) {
           el('button', { type: 'button', class: 'ubtn', onclick: () => foldAll(false) }, 'Collapse all'),
           themeButton(),
           el('button', { type: 'button', class: 'ubtn quiet signout', onclick: signOut }, 'Sign out'))),
+      boardSwitch,
       el('div', { class: 'titlerow' },
-        el('h1', {}, 'Open postings'),
+        el('h1', {}, board === 'eu' ? 'Open in Europe' : 'Open postings'),
         el('div', { class: 'tally' },
           el('span', { class: 't open' }, el('b', {}, openList.length), el('span', {}, 'Open')),
           el('a', { href: '#record', class: 't applied', onclick: toRecord }, el('b', {}, applied.length), el('span', {}, 'Applied')),
@@ -640,7 +667,8 @@ export function renderPage(mount, data) {
       [el('h2', {}, 'Email application log'), el('p', { class: 'counts' }, applicationLog.length + ' entries · updated 12 October 2026')],
       [journalBody], 'email application log'));
     root.append(main);
-    root.append(el('footer', {}, el('p', {}, meta.rule ?? ''), el('p', {}, 'List updated ' + (meta.updated ?? '—'))));
+    const rule = board === 'eu' ? meta.rule_eu ?? meta.rule : meta.rule;
+    root.append(el('footer', {}, el('p', {}, rule ?? ''), el('p', {}, 'List updated ' + (meta.updated ?? '—'))));
     fill(mount, root);
     headObserver.disconnect();
     for (const head of mount.querySelectorAll('.cat > [data-head]')) headObserver.observe(head);

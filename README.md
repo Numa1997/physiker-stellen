@@ -1,7 +1,7 @@
 # Physiker Stellen
 
 Numa's board of physics job postings, as a static GitHub Pages site.
-It is a copy of the AppDeploy app `physik-radar-xvy59b` (version v49, 15 Oct 2026): the same page code
+It is a copy of the AppDeploy app `physik-radar-xvy59b` (version v50, 16 Oct 2026): the same page code
 (`src/claude/view/page.js`, `dom.js`) and the same design (`src/claude/styles/board.css`, see `DESIGN.md`).
 
 ## What differs from the AppDeploy app
@@ -17,6 +17,7 @@ It is a copy of the AppDeploy app `physik-radar-xvy59b` (version v49, 15 Oct 202
 
 - `index.html`: mounts the page.
 - `data/postings.json`: the list. Append new postings after the highest `n`; never renumber or delete, because marks are keyed by `n`. The last element is the `{"_end": true}` marker.
+- Two boards: Germany (areas `berlin`, `leipzig`, `de`) and Europe outside Germany (areas `benelux`, `nordics`, `europe`). The board is chosen by the switch at the top; which area belongs to which board is set in `src/claude/data/categories.js`.
 - `data/meta.json`: the list's rule, last update and target per area.
 - `data/applied.json`: applied history (card, status, date).
 - `src/claude/data/categories.js`: the eleven categories and three areas.

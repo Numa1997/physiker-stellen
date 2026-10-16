@@ -1,4 +1,4 @@
-import { CATEGORIES, AREAS, CATEGORY_KEYS, AREA_KEYS } from './categories.js';
+import { CATEGORIES, BOARDS, AREAS, CATEGORY_KEYS, AREA_KEYS } from './categories.js';
 
 const names = ['postings', 'meta', 'applicationLog'];
 
@@ -48,6 +48,7 @@ export function buildDossier(texts) {
     postings: data.postings.toSorted((a, b) => b.n - a.n),
     meta: Object.fromEntries(data.meta.map(row => [row.key, row.value])),
     categories: CATEGORIES,
+    boards: BOARDS,
     areas: AREAS,
   };
 }
